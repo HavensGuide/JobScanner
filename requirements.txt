@@ -1,0 +1,17 @@
+requests>=2.31
+PyYAML>=6.0
+# writes the .docx for tailored letters and resumes (docs.py):
+python-docx>=1.1
+# optional, a PDF fallback when LibreOffice is not installed. LibreOffice
+# renders the .docx itself and matches it exactly, so prefer that if you
+# have it; reportlab re-lays the text and comes close.
+# reportlab>=4.0
+# optional, only if you want the Google Sheets mirror:
+# gspread>=6.0
+# google-auth>=2.30
+# optional — .env works without it, but this handles exotic quoting:
+# python-dotenv>=1.0
+# optional, only for provider: litellm (Bedrock, Vertex, Azure, ...):
+# litellm>=1.50
+# optional, only for provider: jevk5:
+# jevk5 @ git+https://github.com/allebee/jevk5@v0.3.0   (install with --no-deps)

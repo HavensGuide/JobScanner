@@ -1,0 +1,376 @@
+# ---------------------------------------------------------------------------
+# jobscan config — merged version.
+#
+# Replaces the old title_keywords / title_blocklist / title_prefix_blocklist
+# approach. Titles are no longer the filter; the model reads each posting and
+# scores it. Only two hard gates remain: hard_exclude and location_allowlist.
+#
+# Company ATS slugs (greenhouse/lever/ashby) are gone — there is no public
+# directory of board tokens, so maintaining them by hand wasn't worth it.
+# Adzuna employer searches partially replace that coverage.
+# ---------------------------------------------------------------------------
+
+# Titles that never reach the scorer. This is the ONLY remaining hard gate on
+# content, so it should stay short. Every entry here is a posting you will
+# never see and never know you didn't see.
+#
+# The bar: could any description rescue this title? If yes, it does not belong
+# here — let the scorer read it. "Software Engineer" is NOT here, because
+# "Software Engineer, Economic Research Tools" deserves to be read.
+hard_exclude:
+  # Seniority genuinely out of reach for a May 2026 graduate
+  - director
+  - "vice president"
+  - " vp "
+  - chief
+  - commissioner
+  - deputy
+  - "head of"
+  - principal
+  - senior
+  - "sr "
+  - "sr. "
+  # Licensed professions
+  - nurse
+  - attorney
+  - paralegal
+  - physician
+  - therapist
+  # Physical / trade roles
+  - driver
+  - custodian
+  - technician
+  - electrician
+  - plumber
+  # "Analyst" is a corporate suffix for a dozen jobs that share nothing with
+  # research analysis. These are the ones a sweep of 16,000 boards drags in.
+  - "revenue operations"
+  - "revops"
+  - "sales compensation"
+  - "accounts payable"
+  - "accounts receivable"
+  - payroll
+  - benefits
+  - procurement
+  - sourcing
+  - "executive search"
+  - recruiter
+  - "grc analyst"
+  - "security analyst"
+  - "compliance analyst"
+  - "aml analyst"
+  - "fincrime"
+  - "fraud risk"
+  - "technical support"
+  - "quality control"
+  - "customer analyst"
+  - "gtm operations"
+  - "member of technical staff"
+  - "research software engineer"
+  - "research engineer"
+  - "crawling engineer"
+  - biostatistician
+  - postdoctoral
+  - "k-9"
+
+# Words that hint at relevance. NOT a filter — these only feed the keyword
+# fallback used when the API is unreachable, so the cron job still produces
+# something useful. Be generous; a false positive here costs nothing.
+relevance_signals:
+  - analyst
+  - research
+  - data
+  - economist
+  - economics
+  - policy
+  - quantitative
+  - statistic
+  - econometric
+  - modeling
+  - evaluation
+  - scientist
+  - "machine learning"
+  - python
+  - pandas
+  - regression
+  - survey
+  - "public sector"
+
+scoring:
+  enabled: true
+  # Haiku is the right tier for triage. Keep Sonnet in tailor.py where the
+  # reasoning is actually hard.
+  model: claude-haiku-4-5-20251001
+  batch_size: 20        # postings per API call
+  strong_at: 70         # >= this leads the email
+  maybe_at: 45          # >= this gets a compact section; below is one-liners
+  max_per_run: 600      # cost ceiling. Excess is recorded UNSCORED and
+                        # will not be re-scored next run, so this must be
+                        # above your typical run size. A sweep produces
+                        # hundreds. ~600 Haiku scores costs a few cents.
+  desc_chars: 700       # description characters sent per posting
+
+facts_file: resume.yaml
+
+# Checked BEFORE the allowlist; any match here drops the job. This exists
+# because "remote" in the allowlist is a bare substring, so without it
+# "Remote - Lithuania" and "Mexico City, Mexico (Remote)" both slip through.
+location_blocklist:
+  - lithuania
+  - ukraine
+  - poland
+  - romania
+  - portugal
+  - spain
+  - germany
+  - france
+  - netherlands
+  - india
+  - pakistan
+  - philippines
+  - mexico
+  - brazil
+  - argentina
+  - colombia
+  - "latin america"
+  - canada
+  - toronto
+  - vancouver
+  - singapore
+  - tokyo
+  - japan
+  - korea
+  - australia
+  - sydney
+  - "united kingdom"
+  - london
+  - dublin
+  - ireland
+  - emea
+  - apac
+  - "global (remote)"
+  - worldwide
+  - anywhere
+
+# A model cannot fix a commute, so location stays a hard gate.
+location_allowlist:
+  # Home base
+  - new york
+  - nyc
+  - brooklyn
+  - queens
+  - bronx
+  - manhattan
+  - staten island
+  - "ny,"
+  - " ny"
+  - new jersey
+  - " nj"
+  - newark
+  - jersey city
+  - hoboken
+  - trenton
+  - princeton
+  # Major US metros — research shops, consulting, and federal work cluster here
+  - washington
+  - " dc"
+  - d.c.
+  - arlington
+  - bethesda
+  - boston
+  - cambridge
+  - chicago
+  - san francisco
+  - oakland
+  - berkeley
+  - san jose
+  - seattle
+  - los angeles
+  - philadelphia
+  - atlanta
+  - austin
+  - denver
+  - houston
+  - dallas
+  - miami
+  - minneapolis
+  - pittsburgh
+  - baltimore
+  - "st. louis"
+  - san diego
+  - portland
+  - nashville
+  - detroit
+  - phoenix
+  - ann arbor
+  - new haven
+  - providence
+  - remote
+  # International — visa is the binding constraint at entry level, so these
+  # are off by default. Uncomment if you want to see them anyway.
+  # - london
+  # - dublin
+  # - brussels
+  # - paris
+  # - amsterdam
+  # - berlin
+  # - toronto
+  # - sydney
+  # - melbourne
+  # - auckland
+  # - wellington
+  # - singapore
+
+# ---------------------------------------------------------------------------
+# Sources
+# ---------------------------------------------------------------------------
+
+adzuna:
+  country: us
+  location: "New Jersey"
+  max_days_old: 3
+  results_per_page: 30
+
+  # Broad role searches. One API call each, per run.
+  queries:
+    - "research analyst"
+    - "data analyst economics"
+    - "policy analyst"
+    - "program evaluation"
+    - "quantitative analyst"
+
+  # Employer-targeted exact-phrase searches. This is the partial replacement
+  # for the ATS boards you dropped. Adzuna only finds these if one of the
+  # boards it aggregates carried the posting, so treat a hit as a bonus and a
+  # miss as expected — the run log tells you which came back empty.
+  #
+  # Wider date window than `queries` (see employer_max_days_old) and no
+  # location filter, because a target employer hiring anywhere is worth seeing.
+  employer_max_days_old: 14
+  employers:
+    - "Mathematica"
+    - "Urban Institute"
+    - "MDRC"
+    - "Vera Institute of Justice"
+    - "RAND Corporation"
+    - "Abt Associates"
+    - "Westat"
+    - "NORC"
+    - "Brookings Institution"
+    - "Manhattan Institute"
+
+  # Quota: (5 queries + 10 employers) x 2 runs/day x 22 weekdays = 660/month
+  # against a ~1,000 free tier. Room for a few more, not many. If you add
+  # employers, consider dropping to one run per day.
+
+usajobs:
+  # Occupational series beat keyword search: they catch roles whose titles you
+  # would never think to search for. Verify any code before adding it:
+  #     python sources.py --series economist
+  #     python sources.py --series statistic
+  series:
+    - "0110"    # Economist
+    - "1560"    # Data Science
+    # Uncomment after verifying with --series that these are what you expect:
+    # - "1530"  # Statistician
+    # - "1529"  # Mathematical Statistician
+    # - "0343"  # Management and Program Analysis
+    # - "1515"  # Operations Research
+
+  # Keyword fallback for anything the series miss.
+  keywords:
+    - "research analyst"
+    - "policy analyst"
+
+  location: "New York, New York"
+  results_per_page: 100
+  max_pages: 3
+
+  # Most federal announcements are open only to existing federal employees.
+  # Leave this true unless you have federal status.
+  public_only: true
+
+  # Optional floor, e.g. 60000. Omit to see everything.
+  # min_salary: 60000
+
+nyc_open_data:
+  enabled: true
+  agencies: []
+  limit: 500
+  # Drop postings open only to current city employees.
+  external_only: true
+
+# ---------------------------------------------------------------------------
+# Company job boards (Greenhouse / Lever / Ashby / Workday)
+#
+# These return FULL descriptions, unlike Adzuna's 500-char excerpts, so the
+# scorer and the letter drafter both work much better on them.
+#
+# Slugs are not guessable and there is no official directory. Get them with:
+#     python slugs.py --refresh
+#     python slugs.py --find "Urban Institute" "RAND Corporation" "Vera Institute"
+# That downloads a Common-Crawl-derived list, probes each candidate against the
+# live API, and prints a verified block to paste here.
+#
+# Cost: one request per board per run. Keep this to employers you would
+# actually apply to — 20-40 is comfortable, 300 is not.
+# ---------------------------------------------------------------------------
+# Company job boards (Greenhouse / Lever / Ashby / Workday)
+#
+# These return FULL descriptions, unlike Adzuna's 500-char excerpts.
+#
+# The sweep checks EVERY board in the public slug directory — about 15,900 of
+# them — and keeps jobs by TITLE and LOCATION, not by employer. Curating a
+# list of favourite companies throws away almost everything and is fragile
+# besides (a live board does not prove it is the company you meant).
+#
+# Before the first run:   python slugs.py --refresh
+# ---------------------------------------------------------------------------
+ats:
+  sweep:
+    enabled: true
+    platforms: [greenhouse, lever, ashby]
+
+    # Concurrent requests. 24 does ~16,000 boards in about five minutes.
+    # Lower it if you get connection errors.
+    workers: 24
+
+    # A title must contain one of these to survive. Defaults to
+    # relevance_signals above if omitted. This is the main dial: loosen it to
+    # see more, tighten it to cut noise.
+    title_must_match:
+      - analyst
+      - research
+      - economist
+      - economics
+      - policy
+      - quantitative
+      - econometric
+      - statistician
+      - "data scientist"
+      - "data science"
+      - evaluation
+      - "program evaluat"
+      - statistic          # catches "Statistical Analysis", "Statistician"
+      - "quantitative"
+
+    # After the first full sweep, boards that have produced a match are always
+    # checked and the rest rotate at this fraction per run, so a routine run
+    # is far cheaper than the first one.
+    cold_share: 0.25
+    # Force a complete sweep regardless of history.
+    full_sweep: false
+
+    # Greenhouse omits descriptions from its list call, so each surviving job
+    # costs one more request. This caps that.
+    max_details: 2500
+
+  # Workday can't be swept cheaply (POST, 20/page, no description in the list),
+  # so it stays curated. Slugs are "tenant|datacenter|site".
+  workday:
+    - "rb|wd5|FRS"                                    # Federal Reserve System, all 12 banks
+    - "rand|wd5|external_career_site"                 # RAND Corporation
+    - "cornerstone|wd501|cornerstoneresearch_careers" # Cornerstone Research
+  workday_search: "analyst"
+  workday_max_pages: 3
+  workday_max_details: 25

@@ -1,0 +1,1317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jobscan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+/* ---------------------------------------------------------------------
+   Tokens. Cool index-card greys, one cobalt for anything you can press,
+   and tier colours that mean the same thing on every page.
+   --------------------------------------------------------------------- */
+:root {
+  --bg: #E6EBEF;
+  --surface: #F6F8FA;
+  --raised: #FFFFFF;
+  --ink: #17232B;
+  --muted: #566571;
+  --faint: #8794A0;
+  --line: #CCD5DC;
+  --line-soft: #DDE3E8;
+  --accent: #2747C9;
+  --accent-soft: #E3E8FA;
+  --on-accent: #FFFFFF;
+  --strong: #17784C;
+  --review: #6A43AD;
+  --maybe: #A06A00;
+  --weak: #74818B;
+  --unscored: #3D7AA6;
+  --danger: #B3261E;
+  --ok: #17784C;
+  --log-bg: #17232B;
+  --log-ink: #D8E2E9;
+
+  --sans: "Instrument Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --serif: "Newsreader", "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+
+  --r-small: 4px;
+  --r: 7px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11181D; --surface: #172028; --raised: #1D2730;
+    --ink: #E2E8ED; --muted: #9AA8B4; --faint: #6F7D89;
+    --line: #2B3843; --line-soft: #232F38;
+    --accent: #8098FF; --accent-soft: #232D52; --on-accent: #0E1430;
+    --strong: #52C08B; --review: #A98BE6; --maybe: #D9A63D;
+    --weak: #8693A0; --unscored: #6FAED8; --danger: #F2867E; --ok: #52C08B;
+    --log-bg: #0C1115; --log-ink: #CFD9E0;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11181D; --surface: #172028; --raised: #1D2730;
+  --ink: #E2E8ED; --muted: #9AA8B4; --faint: #6F7D89;
+  --line: #2B3843; --line-soft: #232F38;
+  --accent: #8098FF; --accent-soft: #232D52; --on-accent: #0E1430;
+  --strong: #52C08B; --review: #A98BE6; --maybe: #D9A63D;
+  --weak: #8693A0; --unscored: #6FAED8; --danger: #F2867E; --ok: #52C08B;
+  --log-bg: #0C1115; --log-ink: #CFD9E0;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 15px/1.45 var(--sans);
+  font-feature-settings: "tnum" 0;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.faint { color: var(--faint); }
+.hidden { display: none !important; }
+
+/* ---------------------------------------------------------------------
+   Frame: sidebar + page
+   --------------------------------------------------------------------- */
+.app { display: grid; grid-template-columns: 212px 1fr; height: 100%; }
+.side {
+  border-right: 1px solid var(--line); padding: 20px 14px;
+  display: flex; flex-direction: column; gap: 22px; background: var(--bg);
+  overflow-y: auto;
+}
+.mark {
+  font: italic 400 27px/1 var(--serif); letter-spacing: -0.01em;
+  padding: 0 8px; margin: 0;
+}
+.mark small {
+  display: block; font: 500 12px/1.3 var(--sans); font-style: normal;
+  color: var(--muted); margin-top: 6px; letter-spacing: 0;
+}
+nav { display: flex; flex-direction: column; gap: 1px; }
+nav a {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 10px; border-radius: var(--r-small);
+  color: var(--ink); text-decoration: none; font-weight: 500;
+}
+nav a:hover { background: var(--line-soft); }
+nav a[aria-current="page"] { background: var(--raised); box-shadow: inset 2px 0 0 var(--accent); }
+nav a .count { color: var(--muted); font-weight: 400; font-size: 13px; }
+.side-foot { margin-top: auto; font-size: 13px; color: var(--muted); padding: 0 8px; }
+.side-foot p { margin: 0 0 8px; }
+.tasks-mini a { color: var(--ink); text-decoration: none; display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+.spin {
+  width: 10px; height: 10px; border-radius: 50%; flex: none;
+  border: 2px solid var(--accent); border-right-color: transparent;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; border-right-color: var(--accent); opacity: .6; } }
+
+main { overflow-y: auto; min-width: 0; }
+.page { padding: 22px 28px 40px; max-width: 1480px; }
+.page-head { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; margin-bottom: 16px; }
+h1 { font: 600 24px/1.2 var(--sans); letter-spacing: -0.015em; margin: 0; }
+h2 { font: 600 17px/1.3 var(--sans); margin: 0 0 4px; }
+h3 { font: 600 15px/1.3 var(--sans); margin: 0 0 6px; }
+.lede { color: var(--muted); margin: 2px 0 14px; max-width: 70ch; }
+
+/* ---------------------------------------------------------------------
+   Controls
+   --------------------------------------------------------------------- */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 1px solid var(--line); background: var(--raised);
+  padding: 6px 12px; border-radius: var(--r-small); cursor: pointer;
+  font-weight: 500; white-space: nowrap; text-decoration: none; color: var(--ink);
+}
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.quiet { background: transparent; border-color: transparent; color: var(--accent); padding-left: 6px; padding-right: 6px; }
+.btn.quiet:hover { background: var(--accent-soft); }
+.btn.danger { color: var(--danger); }
+.btn:disabled { opacity: .5; cursor: default; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-small); background: var(--raised); overflow: hidden; }
+.seg button { border: 0; background: transparent; padding: 5px 12px; cursor: pointer; font-weight: 500; color: var(--muted); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--raised); }
+input[type=text], input[type=number], input[type=search], select, textarea {
+  border: 1px solid var(--line); background: var(--raised); border-radius: var(--r-small);
+  padding: 6px 9px; min-width: 0;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+label.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); font-weight: 500; }
+label.field > input, label.field > select, label.field > textarea { color: var(--ink); font-weight: 400; font-size: 15px; }
+label.check { display: inline-flex; gap: 7px; align-items: center; cursor: pointer; }
+.row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.stack { display: flex; flex-direction: column; gap: 12px; }
+.hint { font-size: 13px; color: var(--muted); max-width: 72ch; }
+
+/* tier language */
+.t-strong { color: var(--strong); } .t-review { color: var(--review); }
+.t-maybe { color: var(--maybe); } .t-weak { color: var(--weak); } .t-unscored { color: var(--unscored); }
+.tierword { font-weight: 600; }
+
+/* ---------------------------------------------------------------------
+   Postings: the score strip is the one loud thing in the product
+   --------------------------------------------------------------------- */
+.strip-wrap { background: var(--raised); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 18px 12px; margin-bottom: 14px; }
+.strip-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.strip-top .zones { display: flex; gap: 18px; font-size: 14px; flex-wrap: wrap; }
+.strip-top .zones b { font-variant-numeric: tabular-nums; }
+.strip { position: relative; height: 92px; user-select: none; touch-action: none; }
+.strip svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; }
+.handle {
+  position: absolute; top: -4px; bottom: 16px; width: 22px; margin-left: -11px;
+  cursor: ew-resize; display: flex; justify-content: center; z-index: 2;
+}
+.handle::before { content: ""; width: 2px; background: var(--ink); border-radius: 1px; }
+.handle span {
+  position: absolute; top: -2px; left: 13px; white-space: nowrap;
+  font: 600 12.5px/1 var(--sans); background: var(--ink); color: var(--raised);
+  padding: 4px 6px; border-radius: 3px; font-variant-numeric: tabular-nums;
+}
+.handle.maybe span { left: auto; right: 13px; }
+.handle:focus-visible { outline: none; }
+.handle:focus-visible::before { width: 4px; background: var(--accent); }
+.strip-axis { position: absolute; left: 0; right: 0; bottom: 0; height: 14px; font-size: 11.5px; color: var(--faint); }
+.strip-axis span { position: absolute; transform: translateX(-50%); font-variant-numeric: tabular-nums; }
+.strip-actions { display: flex; gap: 8px; align-items: center; }
+
+.filters { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip {
+  border: 1px solid var(--line); background: var(--raised); border-radius: 999px;
+  padding: 3px 11px 3px 10px; cursor: pointer; font-weight: 500; font-size: 14px;
+  display: inline-flex; gap: 6px; align-items: baseline;
+}
+.chip .n { color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+.chip[aria-pressed="true"] { border-color: currentColor; box-shadow: inset 0 0 0 1px currentColor; }
+.filters .grow { flex: 1 1 200px; min-width: 160px; }
+
+.split { display: grid; grid-template-columns: minmax(330px, 42%) 1fr; gap: 14px; align-items: start; }
+.list { background: var(--raised); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.list-head { display: flex; justify-content: space-between; padding: 8px 14px; border-bottom: 1px solid var(--line-soft); font-size: 13px; color: var(--muted); }
+.jobrow {
+  display: grid; grid-template-columns: 44px 1fr auto; gap: 2px 10px;
+  padding: 10px 14px 10px 12px; border-bottom: 1px solid var(--line-soft);
+  cursor: pointer; text-align: left; width: 100%; border-left: 3px solid transparent;
+  background: none; border-top: 0; border-right: 0;
+}
+.jobrow:hover { background: var(--surface); }
+.jobrow[aria-selected="true"] { background: var(--accent-soft); border-left-color: var(--accent); }
+.jobrow .sc { grid-row: span 2; font: 600 21px/1.1 var(--sans); font-variant-numeric: tabular-nums; padding-top: 1px; }
+.jobrow .ti { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jobrow .co { color: var(--muted); font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jobrow .side-r { grid-row: span 2; text-align: right; font-size: 12.5px; color: var(--muted); display: flex; flex-direction: column; gap: 2px; align-items: flex-end; }
+.jobrow.dim .ti, .jobrow.dim .co { opacity: .55; }
+.pill { font-size: 12px; padding: 0 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; line-height: 18px; }
+.pill.applied { color: var(--strong); border-color: currentColor; }
+.pill.saved { color: var(--accent); border-color: currentColor; }
+.pill.drafted { color: var(--review); border-color: currentColor; }
+.more { padding: 12px; text-align: center; }
+
+.detail { background: var(--raised); border: 1px solid var(--line); border-radius: var(--r); padding: 22px 26px 30px; position: sticky; top: 14px; max-height: calc(100vh - 28px); overflow-y: auto; }
+.detail .empty { color: var(--muted); padding: 40px 0; text-align: center; }
+.d-title { font: 500 27px/1.18 var(--serif); letter-spacing: -0.01em; margin: 0 0 6px; }
+.d-meta { color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 14px; }
+.verdict { display: grid; grid-template-columns: auto 1fr; gap: 4px 18px; align-items: center; margin: 18px 0; padding: 14px 0; border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); }
+.verdict .big { font: 600 46px/1 var(--sans); font-variant-numeric: tabular-nums; grid-row: span 2; letter-spacing: -0.02em; }
+.verdict .why { font-size: 16px; }
+.verdict .who { font-size: 13px; color: var(--muted); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+.posting { font: 400 17.5px/1.62 var(--serif); max-width: 68ch; margin-top: 20px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.posting.thin { color: var(--muted); font-style: italic; }
+.drafts-inline { margin-top: 10px; font-size: 14px; }
+.back { display: none; }
+
+/* ---------------------------------------------------------------------
+   Logs, toasts, sections
+   --------------------------------------------------------------------- */
+.log {
+  background: var(--log-bg); color: var(--log-ink); border-radius: var(--r);
+  font: 12.5px/1.55 var(--mono); padding: 12px 14px; overflow: auto;
+  white-space: pre-wrap; overflow-wrap: anywhere; min-height: 120px; max-height: 60vh;
+}
+.log .bad { color: #FF9C94; } .log .warn { color: #F2C66D; } .log .good { color: #7FD7A8; }
+.log-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 8px; flex-wrap: wrap; }
+.log-head code { font: 12.5px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+.status-dot { display: inline-flex; gap: 6px; align-items: center; font-weight: 600; font-size: 14px; }
+.status-dot.ok { color: var(--ok); } .status-dot.fail { color: var(--danger); }
+
+.section { padding: 20px 0 22px; border-top: 1px solid var(--line); }
+.section:first-of-type { border-top: 0; padding-top: 4px; }
+.section-grid { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 24px; align-items: start; }
+.panel { background: var(--raised); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; }
+
+.toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 50; max-width: min(420px, calc(100vw - 36px)); }
+.toast { background: var(--ink); color: var(--raised); border-radius: var(--r); padding: 11px 14px; display: flex; gap: 12px; align-items: center; box-shadow: 0 6px 24px rgba(10,20,30,.22); }
+.toast .btn.quiet { color: inherit; text-decoration: underline; }
+.toast.bad { background: var(--danger); color: #fff; }
+.toast .msg { flex: 1; }
+
+table.plain { border-collapse: collapse; width: 100%; font-size: 14px; }
+table.plain th { text-align: left; font-weight: 600; color: var(--muted); font-size: 13px; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line); }
+table.plain td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+.problem { color: var(--danger); font-size: 13px; }
+
+/* drafts */
+.drafts { display: grid; grid-template-columns: minmax(280px, 34%) 1fr; gap: 14px; align-items: start; }
+.draftrow { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line-soft); background: none; padding: 10px 14px; cursor: pointer; border-left: 3px solid transparent; }
+.draftrow:hover { background: var(--surface); }
+.draftrow[aria-selected="true"] { background: var(--accent-soft); border-left-color: var(--accent); }
+.draftrow .ti { font-weight: 600; } .draftrow .co { color: var(--muted); font-size: 13.5px; }
+.rec-apply { color: var(--strong); } .rec-manual_review { color: var(--review); } .rec-do_not_apply { color: var(--danger); }
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs button { border: 0; background: none; padding: 8px 12px; cursor: pointer; font-weight: 500; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+textarea.letter { width: 100%; min-height: 420px; font: 400 17px/1.6 var(--serif); padding: 16px 18px; resize: vertical; }
+textarea.code { width: 100%; font: 13px/1.6 var(--mono); padding: 12px 14px; resize: vertical; tab-size: 2; white-space: pre; }
+
+/* settings editor */
+.editor { display: grid; grid-template-columns: 190px 1fr; gap: 14px; align-items: start; }
+.outline { position: sticky; top: 14px; display: flex; flex-direction: column; font-size: 14px; max-height: calc(100vh - 120px); overflow-y: auto; }
+.outline button { text-align: left; background: none; border: 0; padding: 4px 8px; cursor: pointer; border-radius: var(--r-small); color: var(--ink); }
+.outline button:hover { background: var(--line-soft); }
+.msgs { margin: 10px 0 0; padding: 0; list-style: none; font-size: 14px; }
+.msgs li { padding: 6px 10px; border-radius: var(--r-small); margin-bottom: 4px; }
+.msgs .e { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+.msgs .w { background: color-mix(in srgb, var(--maybe) 14%, transparent); color: var(--maybe); }
+
+iframe.digest { width: 100%; height: 70vh; border: 1px solid var(--line); border-radius: var(--r); background: #fff; }
+
+/* ---------------------------------------------------------------------
+   Narrow screens: sidebar becomes a top bar, list and detail stack
+   --------------------------------------------------------------------- */
+@media (max-width: 920px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .side { flex-direction: row; align-items: center; border-right: 0; border-bottom: 1px solid var(--line); padding: 10px 12px; gap: 12px; overflow-x: auto; }
+  .mark { font-size: 22px; } .mark small, .side-foot { display: none; }
+  nav { flex-direction: row; }
+  nav a { white-space: nowrap; }
+  .list-head .faint { display: none; }
+  nav a .count { display: none; }
+  .page { padding: 16px 14px 32px; }
+  .split, .drafts, .section-grid, .editor { grid-template-columns: 1fr; }
+  .outline { display: none; }
+  .split.show-detail .list, .drafts.show-detail .list { display: none; }
+  .split:not(.show-detail) .detail { display: none; }
+  .detail { position: static; max-height: none; padding: 18px; }
+  .back { display: inline-flex; margin-bottom: 10px; }
+  .verdict .big { font-size: 38px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <p class="mark">jobscan<small id="side-sub">Loading</small></p>
+    <nav id="nav" aria-label="Sections">
+      <a href="#/postings" data-page="postings">Postings <span class="count" id="nav-postings"></span></a>
+      <a href="#/run" data-page="run">Run a scan</a>
+      <a href="#/drafts" data-page="drafts">Drafts <span class="count" id="nav-drafts"></span></a>
+      <a href="#/scoring" data-page="scoring">Scoring</a>
+      <a href="#/models" data-page="models">Models</a>
+      <a href="#/settings" data-page="settings">Settings</a>
+      <a href="#/resume" data-page="resume">Resume facts</a>
+      <a href="#/health" data-page="health">Health</a>
+    </nav>
+    <div class="side-foot">
+      <p id="side-last"></p>
+      <div class="tasks-mini" id="tasks-mini"></div>
+    </div>
+  </aside>
+  <main id="main" tabindex="-1"></main>
+</div>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+<script>
+"use strict";
+/* =======================================================================
+   Core
+   ======================================================================= */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const TIERS = ["strong", "review", "maybe", "weak", "unscored"];
+const TIER_WORD = {
+  career: { strong: "Strong", review: "Review", maybe: "Maybe", weak: "Weak", unscored: "Unscored" },
+  bridge: { strong: "Good fit", review: "Review", maybe: "Maybe", weak: "Poor fit", unscored: "Unscored" },
+};
+const STATUS_WORD = { new: "New", saved: "Saved", applied: "Applied", dismissed: "Dismissed" };
+
+async function api(path, opts = {}) {
+  const init = { method: opts.method || "GET", headers: {} };
+  if (init.method !== "GET") {
+    init.headers["X-Jobscan"] = "1";
+    init.headers["Content-Type"] = "application/json";
+    init.body = JSON.stringify(opts.body || {});
+  }
+  const res = await fetch("/api/" + path, init);
+  let data;
+  try { data = await res.json(); } catch { data = {}; }
+  if (!res.ok && !opts.allowError) throw new Error(data.error || `Request failed (${res.status})`);
+  return opts.allowError ? { ok: res.ok, data } : data;
+}
+const qs = (o) => Object.entries(o).filter(([, v]) => v !== "" && v != null && v !== false)
+  .map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+
+function ago(iso) {
+  if (!iso) return "";
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s < 90) return "just now";
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+  const d = Math.round(s / 86400);
+  return d === 1 ? "yesterday" : `${d} days ago`;
+}
+function shortAgo(iso) {
+  if (!iso) return "";
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s < 3600) return `${Math.max(1, Math.round(s / 60))}m`;
+  if (s < 86400) return `${Math.round(s / 3600)}h`;
+  return `${Math.round(s / 86400)}d`;
+}
+
+/* ---- toasts ---------------------------------------------------------- */
+function toast(msg, { bad = false, action = null, ms = 4200 } = {}) {
+  const el = document.createElement("div");
+  el.className = "toast" + (bad ? " bad" : "");
+  el.innerHTML = `<span class="msg">${esc(msg)}</span>`;
+  if (action) {
+    const b = document.createElement("button");
+    b.className = "btn quiet"; b.textContent = action.label;
+    b.onclick = () => { action.run(); el.remove(); };
+    el.appendChild(b);
+  }
+  const x = document.createElement("button");
+  x.className = "btn quiet"; x.setAttribute("aria-label", "Dismiss"); x.textContent = "Close";
+  x.onclick = () => el.remove();
+  el.appendChild(x);
+  $("#toasts").appendChild(el);
+  if (ms) setTimeout(() => el.remove(), ms);
+}
+const fail = (e) => toast(e.message || String(e), { bad: true, ms: 8000 });
+
+/* ---- tasks: every script run, polled while anything is running --------- */
+const Tasks = {
+  known: new Map(), watchers: new Map(), timer: null,
+  async start(kind, options, { onDone, quietToast } = {}) {
+    const run = await api("runs", { method: "POST", body: { kind, options } });
+    this.known.set(run.id, run);
+    if (onDone) this.watchers.set(run.id, onDone);
+    if (!quietToast) toast(`Started: ${run.label}`, { action: { label: "View log", run: () => go(`#/run/${run.id}`) } });
+    this.poll();
+    return run;
+  },
+  poll() { clearTimeout(this.timer); this.timer = setTimeout(() => this.tick(), 900); },
+  async tick() {
+    let runs = [];
+    try { runs = await api("runs"); } catch { return this.poll(); }
+    for (const r of runs) {
+      const before = this.known.get(r.id);
+      if (before && before.running && !r.running) this.finished(r);
+      this.known.set(r.id, r);
+    }
+    renderTasksMini(runs);
+    if (Router.page === "run") RunPage.refreshList(runs);
+    if (runs.some((r) => r.running)) this.poll();
+  },
+  finished(r) {
+    const cb = this.watchers.get(r.id);
+    this.watchers.delete(r.id);
+    const ok = r.code === 0;
+    toast(`${ok ? "Finished" : "Failed"}: ${r.label}`, {
+      bad: !ok, ms: ok ? 5000 : 10000,
+      action: { label: "View log", run: () => go(`#/run/${r.id}`) },
+    });
+    if (cb) cb(r);
+    refreshSide();
+  },
+};
+function renderTasksMini(runs) {
+  const live = runs.filter((r) => r.running);
+  $("#tasks-mini").innerHTML = live.map((r) =>
+    `<a href="#/run/${r.id}"><span class="spin" aria-hidden="true"></span>${esc(r.label)}</a>`).join("");
+}
+
+/* ---- sidebar --------------------------------------------------------- */
+async function refreshSide() {
+  try {
+    const s = await api("summary");
+    App.summary = s;
+    $("#side-sub").textContent = `${s.total.toLocaleString()} postings stored`;
+    $("#side-last").textContent = s.last_run
+      ? `Last scan ${ago(s.last_run)}, ${s.last_run_count} new` : "No scans yet";
+    $("#nav-postings").textContent = s.total ? s.total.toLocaleString() : "";
+  } catch (e) { $("#side-sub").textContent = "Server not answering"; }
+}
+
+/* ---- router ---------------------------------------------------------- */
+const App = { summary: null, models: null };
+const go = (hash) => { if (location.hash === hash) Router.render(); else location.hash = hash; };
+const Router = {
+  page: null,
+  pages: {},
+  render() {
+    const [, page = "postings", ...rest] = location.hash.split("/");
+    const name = this.pages[page] ? page : "postings";
+    this.page = name;
+    $$("#nav a").forEach((a) => { if (a.dataset.page !== name) a.removeAttribute("aria-current"); else a.setAttribute("aria-current", "page"); });
+    const main = $("#main");
+    main.innerHTML = "";
+    main.scrollTop = 0;
+    this.pages[name].render(main, rest.map(decodeURIComponent));
+  },
+};
+window.addEventListener("hashchange", () => Router.render());
+
+/* ---- small builders -------------------------------------------------- */
+function seg(options, value, onChange, label) {
+  const el = document.createElement("div");
+  el.className = "seg"; el.setAttribute("role", "group");
+  if (label) el.setAttribute("aria-label", label);
+  for (const [v, text] of options) {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = text; b.dataset.v = v;
+    b.setAttribute("aria-pressed", String(v === value));
+    b.onclick = () => {
+      $$("button", el).forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      onChange(v);
+    };
+    el.appendChild(b);
+  }
+  return el;
+}
+function logHtml(lines) {
+  return lines.map((l) => {
+    const e = esc(l);
+    if (/^\s*(\[ FAIL \]|!!|Traceback|error:|\s*! )/.test(l) || /Error:/.test(l)) return `<span class="bad">${e}</span>`;
+    if (/^\s*(\[ warn \]|  ! )/.test(l)) return `<span class="warn">${e}</span>`;
+    if (/^\s*\[  ok  \]/.test(l) || /^(Done\.|All clear)/.test(l)) return `<span class="good">${e}</span>`;
+    return e;
+  }).join("\n");
+}
+/* A live log inside any page: start a task, stream it, call back at the end. */
+function inlineRunner(container, { onDone } = {}) {
+  container.innerHTML = "";
+  let id = null, next = 0, timer = null, lines = [];
+  const head = document.createElement("div"); head.className = "log-head";
+  const pre = document.createElement("pre"); pre.className = "log";
+  pre.textContent = "Output appears here.";
+  container.append(head, pre);
+  async function pump() {
+    if (!id) return;
+    try {
+      const r = await api(`runs/${id}?since=${next}`);
+      lines = lines.concat(r.lines); next = r.next;
+      const atBottom = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 40;
+      pre.innerHTML = logHtml(lines) || "Waiting for output";
+      if (atBottom) pre.scrollTop = pre.scrollHeight;
+      head.innerHTML = `<code>${esc(r.command)}</code>` + (r.running
+        ? `<span class="row" style="align-items:center"><span class="status-dot"><span class="spin"></span>Running</span><button class="btn danger" data-stop>Stop</button></span>`
+        : `<span class="status-dot ${r.code === 0 ? "ok" : "fail"}">${r.code === 0 ? "Finished" : `Exited with code ${r.code}`}</span>`);
+      const stop = head.querySelector("[data-stop]");
+      if (stop) stop.onclick = () => api(`runs/${id}/stop`, { method: "POST" }).then(() => toast("Stopping")).catch(fail);
+      if (r.running) timer = setTimeout(pump, 700);
+      else if (onDone) onDone(r);
+    } catch (e) { pre.textContent = e.message; }
+  }
+  return {
+    async run(kind, options) {
+      clearTimeout(timer); lines = []; next = 0;
+      pre.textContent = "Starting";
+      try {
+        const r = await Tasks.start(kind, options, { quietToast: true });
+        id = r.id; pump();
+      } catch (e) { pre.innerHTML = `<span class="bad">${esc(e.message)}</span>`; }
+    },
+    attach(runId) { clearTimeout(timer); id = runId; lines = []; next = 0; pump(); },
+  };
+}
+async function models() {
+  if (!App.models) App.models = await api("models");
+  return App.models;
+}
+function modelOptions(m, { generativeOnly = false, blank = "Configured default" } = {}) {
+  return `<option value="">${esc(blank)}</option>` + m.profiles
+    .filter((p) => !generativeOnly || p.generative)
+    .map((p) => `<option value="${esc(p.name)}">${esc(p.name)}${p.model ? ` (${esc(p.model)})` : ""}</option>`).join("");
+}
+
+/* =======================================================================
+   Postings
+   ======================================================================= */
+const Postings = {
+  f: { track: "career", tier: "", status: "open", days: "", run: "", q: "", deep: "", scorer: "", sort: "fit" },
+  rows: [], total: 0, offset: 0, selected: null, hist: null, lines: null,
+  render(root) {
+    const f = this.f;
+    root.innerHTML = `<div class="page">
+      <div class="page-head">
+        <h1>Postings</h1>
+        <span id="p-track"></span>
+        <span class="muted" id="p-method"></span>
+      </div>
+      <div class="strip-wrap" id="strip-wrap"></div>
+      <div class="filters">
+        <div class="chips" id="p-tiers" role="group" aria-label="Tier"></div>
+        <select id="p-status" aria-label="My status">
+          <option value="open">Open (new and saved)</option><option value="new">New</option>
+          <option value="saved">Saved</option><option value="applied">Applied</option>
+          <option value="dismissed">Dismissed</option><option value="">Any status</option>
+        </select>
+        <select id="p-when" aria-label="Found">
+          <option value="">Found any time</option><option value="last">In the last scan</option>
+          <option value="1">In the last day</option><option value="7">In the last week</option>
+          <option value="30">In the last month</option>
+        </select>
+        <select id="p-scorer" aria-label="Scored by">
+          <option value="">Any scorer</option><option value="jev">jev</option>
+          <option value="rubric">Rubric</option><option value="keyword">Keywords only</option>
+        </select>
+        <input type="search" id="p-q" class="grow" placeholder="Search title, employer, place or reason" aria-label="Search">
+        <label class="check"><input type="checkbox" id="p-deep"> Include posting text</label>
+        <span id="p-sort"></span>
+      </div>
+      <div class="split" id="p-split">
+        <section class="list" aria-label="Results">
+          <div class="list-head"><span id="p-count"></span><span class="faint">j and k to move, o to open</span></div>
+          <div id="p-rows"></div>
+          <div class="more hidden" id="p-more"><button class="btn" id="p-more-btn">Show more</button></div>
+        </section>
+        <section class="detail" id="p-detail" aria-label="Posting"><div class="empty">Choose a posting to read it.</div></section>
+      </div>
+    </div>`;
+    $("#p-track").appendChild(seg([["career", "Career"], ["bridge", "Bridge"], ["all", "Both"]],
+      f.track, (v) => { f.track = v; this.reload(true); }, "Track"));
+    $("#p-sort").appendChild(seg([["fit", "Best fit"], ["newest", "Newest"]], f.sort,
+      (v) => { f.sort = v; this.reload(); }, "Sort"));
+    $("#p-status").value = f.status;
+    $("#p-when").value = f.run === "last" ? "last" : f.days;
+    $("#p-scorer").value = f.scorer;
+    $("#p-q").value = f.q; $("#p-deep").checked = !!f.deep;
+    $("#p-status").onchange = (e) => { f.status = e.target.value; this.reload(); };
+    $("#p-when").onchange = (e) => {
+      const v = e.target.value; f.run = v === "last" ? "last" : ""; f.days = v === "last" ? "" : v;
+      this.reload(true);
+    };
+    $("#p-scorer").onchange = (e) => { f.scorer = e.target.value; this.reload(); };
+    let t; $("#p-q").oninput = (e) => { clearTimeout(t); t = setTimeout(() => { f.q = e.target.value; this.reload(); }, 220); };
+    $("#p-deep").onchange = (e) => { f.deep = e.target.checked ? "1" : ""; if (f.q) this.reload(); };
+    $("#p-more-btn").onclick = () => this.load(true);
+    this.reload(true);
+  },
+  params(extra = {}) {
+    const f = this.f;
+    return qs({ track: f.track === "all" ? "" : f.track, tier: f.tier, status: f.status, days: f.days, run: f.run,
+      q: f.q, deep: f.deep, scorer: f.scorer, sort: f.sort, ...extra });
+  },
+  async reload(strip = false) {
+    this.offset = 0;
+    await this.load(false);
+    if (strip) this.loadStrip();
+    const m = App.summary?.methods?.[this.f.track];
+    $("#p-method").textContent = m ? `Scored by ${m.method}${m.model ? ` on ${m.model.split(" (")[0]}` : ""}` : "";
+  },
+  async load(append) {
+    try {
+      const d = await api("jobs?" + this.params({ limit: 80, offset: append ? this.offset : 0 }));
+      this.rows = append ? this.rows.concat(d.rows) : d.rows;
+      this.total = d.total; this.offset = this.rows.length;
+      this.drawTiers(d.tiers);
+      this.drawRows();
+      if (!append) {
+        const keep = this.rows.find((r) => r.uid === this.selected);
+        if (keep) this.highlight(); else if (this.rows[0] && innerWidth > 920) this.open(this.rows[0].uid);
+        else if (!this.rows.length) $("#p-detail").innerHTML = `<div class="empty">Nothing matches these filters.</div>`;
+      }
+    } catch (e) { fail(e); }
+  },
+  drawTiers(counts) {
+    const el = $("#p-tiers"); if (!el) return;
+    const words = TIER_WORD[this.f.track === "bridge" ? "bridge" : "career"];
+    const total = TIERS.reduce((a, t) => a + (counts[t] || 0), 0);
+    el.innerHTML = [["", "All", total], ...TIERS.map((t) => [t, words[t], counts[t] || 0])]
+      .map(([t, w, n]) => `<button class="chip ${t ? "t-" + t : ""}" data-t="${t}" aria-pressed="${this.f.tier === t}">${w}<span class="n">${n}</span></button>`).join("");
+    $$(".chip", el).forEach((b) => b.onclick = () => { this.f.tier = b.dataset.t; this.reload(); });
+  },
+  drawRows() {
+    const words = (tr) => TIER_WORD[tr === "bridge" ? "bridge" : "career"];
+    $("#p-count").textContent = `${this.total.toLocaleString()} posting${this.total === 1 ? "" : "s"}`;
+    $("#p-rows").innerHTML = this.rows.map((r) => {
+      const st = r.status !== "new" ? `<span class="pill ${r.status}">${STATUS_WORD[r.status]}</span>` : "";
+      const dr = r.tailor.state === "drafted" ? `<span class="pill drafted">Drafted</span>` : "";
+      return `<button class="jobrow ${r.status === "dismissed" ? "dim" : ""}" data-uid="${esc(r.uid)}" role="option">
+        <span class="sc t-${r.tier_now}" title="${esc(words(r.track)[r.tier_now])}">${r.score ?? "–"}</span>
+        <span class="ti">${esc(r.title)}</span>
+        <span class="side-r"><span>${shortAgo(r.first_seen)}</span>${st || dr}</span>
+        <span class="co">${esc(r.company)}${r.location ? `, ${esc(r.location)}` : ""}${this.f.track === "all" && r.track === "bridge" ? " (bridge)" : ""}</span>
+      </button>`;
+    }).join("") || `<div class="more muted">No postings here. Try another tier, or widen “Found”.</div>`;
+    $("#p-more").classList.toggle("hidden", this.rows.length >= this.total);
+    $$(".jobrow").forEach((b) => b.onclick = () => this.open(b.dataset.uid));
+    this.highlight();
+  },
+  highlight() {
+    $$(".jobrow").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.uid === this.selected)));
+  },
+  async open(uid, scroll = false) {
+    this.selected = uid; this.highlight();
+    $("#p-split")?.classList.add("show-detail");
+    if (scroll) $(`.jobrow[aria-selected="true"]`)?.scrollIntoView({ block: "nearest" });
+    try {
+      const j = await api("job?" + qs({ uid }));
+      if (this.selected === uid) {
+        this.drawDetail(j);
+        if (innerWidth <= 920) $("#p-detail").scrollIntoView({ block: "start" });
+      }
+    } catch (e) { fail(e); }
+  },
+  drawDetail(j) {
+    const words = TIER_WORD[j.track];
+    const scorer = j.scorer === "keyword" ? "Keyword estimate, not read by a model"
+      : j.scorer === "rule" ? "Ruled out by a date check"
+      : j.scorer ? `Scored by ${j.scorer === "anthropic" ? "rubric" : j.scorer}${j.scorer_model ? ` on ${j.scorer_model}` : ""}` : "";
+    const desc = j.description || "";
+    const files = j.tailor.files || [];
+    const el = $("#p-detail");
+    el.innerHTML = `
+      <button class="btn quiet back" id="d-back">Back to list</button>
+      <h2 class="d-title">${esc(j.title)}</h2>
+      <div class="d-meta">
+        <span>${esc(j.company)}</span><span>${esc(j.location)}</span>
+        ${j.salary ? `<span>${esc(j.salary)}</span>` : ""}
+        ${j.posted ? `<span>Posted ${esc(j.posted)}</span>` : ""}
+        <span>Found ${ago(j.first_seen)} on ${esc(j.source)}</span>
+        ${j.track === "bridge" ? "<span>Bridge track</span>" : ""}
+      </div>
+      <div class="verdict">
+        <span class="big t-${j.tier_now}">${j.score ?? "–"}</span>
+        <span class="why"><span class="tierword t-${j.tier_now}">${words[j.tier_now]}.</span> ${esc(j.reason || "")}</span>
+        <span class="who">${esc(scorer)}</span>
+      </div>
+      <div class="actions" id="d-status"></div>
+      <div class="actions">
+        ${j.url ? `<a class="btn primary" href="${esc(j.url)}" target="_blank" rel="noopener">Open the posting</a>` : ""}
+        <button class="btn" data-mode="letter">Draft a letter</button>
+        <button class="btn" data-mode="resume">Resume advice</button>
+        <button class="btn" data-mode="both">Both</button>
+        <button class="btn quiet" id="d-rescore">Rescore</button>
+      </div>
+      ${files.length ? `<div class="drafts-inline">Already drafted: ${files.filter((f) => f.kind !== "analysis").map((f) =>
+        `<a href="#/drafts/${encodeURIComponent(j.tailor.stem)}/${f.kind}">${f.kind}</a>`).join(", ") || "analysis only"}
+        ${j.tailor.rec ? `(${esc(j.tailor.rec.replaceAll("_", " "))})` : ""}</div>` : ""}
+      <div class="posting ${desc.length < 400 ? "thin" : ""}">${esc(desc) || "No description was retrieved for this posting. Open it to read the original."}</div>`;
+    $("#d-back").onclick = () => $("#p-split").classList.remove("show-detail");
+    $("#d-status").appendChild(seg(Object.entries(STATUS_WORD), j.status, (v) => this.setStatus(j.uid, v), "My status"));
+    $$("[data-mode]", el).forEach((b) => b.onclick = () => this.tailor(j, b.dataset.mode));
+    $("#d-rescore").onclick = () => Tasks.start("backfill", { uid: j.uid, title: j.title },
+      { onDone: () => { this.open(j.uid); this.load(false); } });
+  },
+  async setStatus(uid, status) {
+    try {
+      const r = this.rows.find((x) => x.uid === uid);
+      const prev = r?.status || "new";
+      await api("job/status", { method: "POST", body: { uid, status } });
+      if (r) r.status = status;
+      const hides = (this.f.status === "open" && !["new", "saved"].includes(status))
+        || (this.f.status && this.f.status !== "open" && this.f.status !== status);
+      if (hides) {
+        const i = this.rows.findIndex((x) => x.uid === uid);
+        this.rows.splice(i, 1); this.total -= 1; this.drawRows();
+        const nxt = this.rows[Math.min(i, this.rows.length - 1)];
+        if (nxt) this.open(nxt.uid, true);
+        toast(`Marked ${STATUS_WORD[status].toLowerCase()}`, { action: { label: "Undo", run: () => {
+          api("job/status", { method: "POST", body: { uid, status: prev } }).then(() => this.reload()).catch(fail); } } });
+      } else { this.drawRows(); }
+    } catch (e) { fail(e); }
+  },
+  tailor(j, mode) {
+    Tasks.start("tailor", { uid: j.uid, title: j.title, mode },
+      { onDone: (r) => { if (this.selected === j.uid) this.open(j.uid); if (r.code === 0) toast("Drafts are ready", { action: { label: "Open drafts", run: () => go("#/drafts") } }); } });
+  },
+
+  /* ---- the score strip ------------------------------------------------ */
+  async loadStrip() {
+    const wrap = $("#strip-wrap"); if (!wrap) return;
+    if (this.f.track === "all") {
+      wrap.innerHTML = `<div class="hint">Career and bridge scores answer different questions, so each has its own lines. Pick one track to see and move them.</div>`;
+      return;
+    }
+    try {
+      this.hist = await api("histogram?" + qs({ track: this.f.track, days: this.f.days }));
+      this.lines = { strong: this.hist.strong_at, maybe: this.hist.maybe_at };
+      this.drawStrip();
+    } catch (e) { wrap.innerHTML = `<div class="problem">${esc(e.message)}</div>`; }
+  },
+  drawStrip() {
+    const h = this.hist, L = this.lines, wrap = $("#strip-wrap");
+    const words = TIER_WORD[this.f.track];
+    const max = Math.max(1, ...h.bins);
+    const counts = { weak: 0, maybe: 0, strong: 0 };
+    h.bins.forEach((n, s) => { counts[s >= L.strong ? "strong" : s >= L.maybe ? "maybe" : "weak"] += n; });
+    const changed = L.strong !== h.strong_at || L.maybe !== h.maybe_at;
+    wrap.innerHTML = `
+      <div class="strip-top">
+        <div class="zones">
+          <span class="muted">All ${h.bins.reduce((a, n) => a + n, 0)} scored:</span>
+          <span class="t-strong">${words.strong} <b>${counts.strong}</b></span>
+          <span class="t-maybe">${words.maybe} <b>${counts.maybe}</b></span>
+          <span class="t-weak">${words.weak} <b>${counts.weak}</b></span>
+          <span class="muted">${h.review} flagged for review, ${h.unscored} not read by a model</span>
+        </div>
+        <div class="strip-actions">
+          ${changed ? `<span class="muted">Was ${h.maybe_at} and ${h.strong_at}</span>
+            <button class="btn quiet" id="s-reset">Reset</button>
+            <button class="btn primary" id="s-save">Save these lines</button>`
+            : `<span class="faint">Drag a line to see how the tiers would change</span>`}
+        </div>
+      </div>
+      <div class="strip" id="strip">
+        <svg viewBox="0 0 1010 92" preserveAspectRatio="none" aria-hidden="true">
+          <rect x="${L.strong * 10}" y="0" width="${1010 - L.strong * 10}" height="76" fill="var(--strong)" opacity=".07"/>
+          <rect x="${L.maybe * 10}" y="0" width="${(L.strong - L.maybe) * 10}" height="76" fill="var(--maybe)" opacity=".07"/>
+          ${h.bins.map((n, s) => n ? `<rect x="${s * 10 + 1}" y="${76 - Math.max(2, (n / max) * 72)}" width="8" height="${Math.max(2, (n / max) * 72)}"
+             fill="var(--${s >= L.strong ? "strong" : s >= L.maybe ? "maybe" : "weak"})" rx="1"/>` : "").join("")}
+          <line x1="0" x2="1010" y1="76.5" y2="76.5" stroke="var(--line)"/>
+        </svg>
+        <div class="handle maybe" id="h-maybe" tabindex="0" role="slider" aria-label="Maybe line" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${L.maybe}" style="left:${(L.maybe + 0.5) / 101 * 100}%"><span>Maybe ${L.maybe}</span></div>
+        <div class="handle strong" id="h-strong" tabindex="0" role="slider" aria-label="Strong line" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${L.strong}" style="left:${(L.strong + 0.5) / 101 * 100}%"><span>${words.strong} ${L.strong}</span></div>
+        <div class="strip-axis">${[0, 25, 50, 75, 100].map((v) => `<span style="left:${(v + 0.5) / 101 * 100}%">${v}</span>`).join("")}</div>
+      </div>`;
+    this.bindHandles();
+    $("#s-reset") && ($("#s-reset").onclick = () => { this.lines = { strong: h.strong_at, maybe: h.maybe_at }; this.drawStrip(); });
+    $("#s-save") && ($("#s-save").onclick = () => this.saveLines());
+  },
+  bindHandles() {
+    const strip = $("#strip");
+    for (const which of ["maybe", "strong"]) {
+      const hEl = $(`#h-${which}`);
+      const set = (v) => {
+        v = Math.max(0, Math.min(100, Math.round(v)));
+        if (which === "maybe") v = Math.min(v, this.lines.strong);
+        else v = Math.max(v, this.lines.maybe);
+        if (v !== this.lines[which]) { this.lines[which] = v; this.drawStrip(); $(`#h-${which}`).focus(); }
+      };
+      hEl.onpointerdown = (e) => {
+        hEl.setPointerCapture(e.pointerId);
+        const rect = strip.getBoundingClientRect();
+        const move = (ev) => {
+          const v = ((ev.clientX - rect.left) / rect.width) * 101 - 0.5;
+          v2 = Math.max(0, Math.min(100, Math.round(v)));
+          if (which === "maybe") v2 = Math.min(v2, this.lines.strong); else v2 = Math.max(v2, this.lines.maybe);
+          if (v2 !== this.lines[which]) { this.lines[which] = v2; this.drawStripLight(); }
+        };
+        let v2;
+        const up = () => { removeEventListener("pointermove", move); removeEventListener("pointerup", up); this.drawStrip(); };
+        addEventListener("pointermove", move); addEventListener("pointerup", up);
+      };
+      hEl.onkeydown = (e) => {
+        const step = e.shiftKey ? 5 : 1;
+        if (e.key === "ArrowLeft" || e.key === "ArrowDown") { set(this.lines[which] - step); e.preventDefault(); }
+        if (e.key === "ArrowRight" || e.key === "ArrowUp") { set(this.lines[which] + step); e.preventDefault(); }
+      };
+    }
+  },
+  /* during a drag, redraw everything but keep the pointer capture alive */
+  drawStripLight() {
+    const strip = $("#strip"); const prev = strip.querySelector(".handle:focus");
+    const hm = $("#h-maybe"), hs = $("#h-strong");
+    const L = this.lines, h = this.hist, words = TIER_WORD[this.f.track];
+    hm.style.left = `${(L.maybe + 0.5) / 101 * 100}%`; hm.querySelector("span").textContent = `Maybe ${L.maybe}`;
+    hs.style.left = `${(L.strong + 0.5) / 101 * 100}%`; hs.querySelector("span").textContent = `${words.strong} ${L.strong}`;
+    const svg = strip.querySelector("svg");
+    const rects = svg.querySelectorAll("rect");
+    rects[0].setAttribute("x", L.strong * 10); rects[0].setAttribute("width", 1010 - L.strong * 10);
+    rects[1].setAttribute("x", L.maybe * 10); rects[1].setAttribute("width", (L.strong - L.maybe) * 10);
+    rects.forEach((r, i) => {
+      if (i < 2) return;
+      const s = Math.round((+r.getAttribute("x") - 1) / 10);
+      r.setAttribute("fill", `var(--${s >= L.strong ? "strong" : s >= L.maybe ? "maybe" : "weak"})`);
+    });
+    const counts = { weak: 0, maybe: 0, strong: 0 };
+    h.bins.forEach((n, s) => { counts[s >= L.strong ? "strong" : s >= L.maybe ? "maybe" : "weak"] += n; });
+    const z = $$(".zones b");
+    z[0].textContent = counts.strong; z[1].textContent = counts.maybe; z[2].textContent = counts.weak;
+    if (prev) prev.focus();
+  },
+  async saveLines() {
+    try {
+      await api("thresholds", { method: "POST", body: { track: this.f.track, strong_at: this.lines.strong, maybe_at: this.lines.maybe } });
+      toast(`Saved to config.yaml: maybe from ${this.lines.maybe}, ${TIER_WORD[this.f.track].strong.toLowerCase()} from ${this.lines.strong}`);
+      await refreshSide();
+      this.reload(true);
+    } catch (e) { fail(e); }
+  },
+  key(e) {
+    if (Router.page !== "postings" || e.target.matches("input, textarea, select") || e.metaKey || e.ctrlKey || e.altKey) return;
+    const i = this.rows.findIndex((r) => r.uid === this.selected);
+    const j = this.rows[i];
+    if (e.key === "j" || e.key === "k") {
+      const n = this.rows[Math.max(0, Math.min(this.rows.length - 1, i + (e.key === "j" ? 1 : -1)))];
+      if (n) this.open(n.uid, true);
+    } else if (e.key === "o" && j?.url) window.open(j.url, "_blank", "noopener");
+    else if (j && { s: "saved", a: "applied", d: "dismissed", n: "new" }[e.key]) this.setStatus(j.uid, { s: "saved", a: "applied", d: "dismissed", n: "new" }[e.key]);
+  },
+};
+document.addEventListener("keydown", (e) => Postings.key(e));
+Router.pages.postings = Postings;
+
+/* =======================================================================
+   Run a scan
+   ======================================================================= */
+const SOURCES = [["adzuna", "Adzuna"], ["usajobs", "USAJOBS"], ["nyc", "NYC jobs"], ["greenhouse", "Greenhouse"],
+  ["lever", "Lever"], ["ashby", "Ashby"], ["workday", "Workday"]];
+const RunPage = {
+  view: "log", current: null, runner: null,
+  render(root, [runId]) {
+    root.innerHTML = `<div class="page">
+      <div class="page-head"><h1>Run a scan</h1><span id="r-view"></span></div>
+      <div class="section-grid">
+        <div class="stack">
+          <form class="panel stack" id="r-form">
+            <h2>Find new postings</h2>
+            <p class="hint">Fetches every source, drops what you have already seen, scores the rest and emails the digest. The same as <code>python main.py</code>.</p>
+            <div class="seg" id="r-track-seg"></div>
+            <fieldset style="border:0;padding:0;margin:0" class="stack">
+              <legend class="hint" style="margin-bottom:6px">Sources</legend>
+              <div class="row" style="gap:6px 14px">${SOURCES.map(([v, l]) =>
+                `<label class="check"><input type="checkbox" name="src" value="${v}" checked> ${l}</label>`).join("")}</div>
+            </fieldset>
+            <label class="field">Only these places (optional)<input type="text" name="location" placeholder="new york, newark"></label>
+            <label class="field">Most postings to send to a paid model<input type="number" name="max_score" min="1" placeholder="From config"></label>
+            <label class="check"><input type="checkbox" name="dry_run"> Dry run: score and show the digest, but record and send nothing</label>
+            <label class="check"><input type="checkbox" name="no_score"> Skip scoring (keyword estimates only, free)</label>
+            <div><button class="btn primary" type="submit">Start the scan</button></div>
+          </form>
+          <div class="panel"><h2>Recent tasks</h2><div id="r-list" class="stack" style="gap:2px;margin-top:8px"></div></div>
+        </div>
+        <div id="r-right"></div>
+      </div>
+    </div>`;
+    let track = "";
+    $("#r-track-seg").replaceWith(seg([["", "Both tracks"], ["career", "Career only"], ["bridge", "Bridge only"]], "",
+      (v) => { track = v; }, "Track"));
+    $("#r-form").onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const opts = { track, sources: fd.getAll("src"), location: fd.get("location").trim(),
+        max_score: fd.get("max_score"), dry_run: fd.get("dry_run") === "on", no_score: fd.get("no_score") === "on" };
+      if (!opts.sources.length) return toast("Pick at least one source", { bad: true });
+      try { const r = await Tasks.start("scan", opts, { quietToast: true, onDone: () => refreshSide() }); go(`#/run/${r.id}`); }
+      catch (err) { fail(err); }
+    };
+    $("#r-view").appendChild(seg([["log", "Task output"], ["digest", "Digest preview"]], this.view, (v) => { this.view = v; this.drawRight(); }, "View"));
+    this.current = runId || null;
+    this.drawRight();
+    api("runs").then((runs) => {
+      this.refreshList(runs);
+      if (!this.current && runs[0] && this.view === "log") { this.current = runs[0].id; this.runner?.attach(this.current); }
+    });
+  },
+  drawRight() {
+    const right = $("#r-right");
+    if (this.view === "digest") return this.drawDigest(right);
+    right.innerHTML = `<div id="r-log"></div>`;
+    this.runner = inlineRunner($("#r-log"), { onDone: () => refreshSide() });
+    if (this.current) this.runner.attach(this.current);
+  },
+  async drawDigest(right) {
+    right.innerHTML = `<div class="log-head"><span class="muted" id="dg-note">Loading</span><select id="dg-when" aria-label="Which postings">
+      <option value="">The last scan</option><option value="1">The last day</option><option value="7">The last week</option></select></div>
+      <iframe class="digest" id="dg" title="Digest preview" sandbox=""></iframe>`;
+    const load = async () => {
+      try {
+        const d = await api("digest?" + qs({ days: $("#dg-when").value }));
+        $("#dg-note").textContent = d.count ? `The email as it would be built from ${d.count} postings, with today's thresholds` : "No postings in that window yet.";
+        $("#dg").srcdoc = d.html || "<p style='font-family:sans-serif;color:#666'>Nothing to show.</p>";
+      } catch (e) { fail(e); }
+    };
+    $("#dg-when").onchange = load; load();
+  },
+  refreshList(runs) {
+    const el = $("#r-list"); if (!el) return;
+    el.innerHTML = runs.length ? runs.map((r) => `<a href="#/run/${r.id}" class="draftrow" ${r.id === this.current ? 'aria-selected="true"' : ""} style="padding:7px 10px">
+      <span class="ti" style="display:flex;gap:8px;align-items:center">${r.running ? '<span class="spin"></span>' : ""}${esc(r.label)}</span>
+      <span class="co">${new Date(r.started * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}${r.running ? ", running" : r.code === 0 ? ", finished" : `, failed (${r.code})`}</span></a>`).join("")
+      : `<p class="hint">Nothing has run since the server started.</p>`;
+    $$("a", el).forEach((a) => a.style.textDecoration = "none");
+  },
+};
+Router.pages.run = RunPage;
+
+/* =======================================================================
+   Drafts
+   ======================================================================= */
+const REC_WORD = { apply: "Apply", manual_review: "Needs your call", do_not_apply: "Do not apply" };
+const Drafts = {
+  list: [], sel: null, tab: "analysis",
+  async render(root, [stem, tab]) {
+    if (stem) this.sel = stem;
+    if (tab) this.tab = tab;
+    root.innerHTML = `<div class="page">
+      <div class="page-head"><h1>Drafts</h1>
+        <button class="btn" id="dr-paste">Draft from a pasted posting</button>
+        <button class="btn" id="dr-batch">Draft in bulk</button></div>
+      <div id="dr-panel"></div>
+      <div class="drafts" id="dr-split">
+        <section class="list" aria-label="Drafts"><div class="list-head"><span id="dr-count"></span></div><div id="dr-rows"></div></section>
+        <section class="detail" id="dr-detail"><div class="empty">Choose a job to see its analysis and drafts.</div></section>
+      </div></div>`;
+    $("#dr-paste").onclick = () => this.pastePanel();
+    $("#dr-batch").onclick = () => this.batchPanel();
+    await this.load();
+  },
+  async load() {
+    try { this.list = await api("drafts"); } catch (e) { return fail(e); }
+    $("#nav-drafts").textContent = this.list.length || "";
+    $("#dr-count").textContent = `${this.list.length} job${this.list.length === 1 ? "" : "s"} analysed`;
+    $("#dr-rows").innerHTML = this.list.map((d) => `<button class="draftrow" data-stem="${esc(d.stem)}">
+      <div class="ti">${esc(d.role || d.stem.split("__")[1]?.replaceAll("_", " "))}</div>
+      <div class="co">${esc(d.company || d.stem.split("__")[0].replaceAll("_", " "))}</div>
+      <div class="co"><span class="rec-${d.rec}">${REC_WORD[d.rec] || "Analysed"}</span>${d.drafted ? ", drafted" : ""}, ${ago(new Date(d.newest * 1000).toISOString())}</div>
+    </button>`).join("") || `<div class="more muted">No drafts yet. Open a posting and choose “Draft a letter”, or paste one above.</div>`;
+    $$(".draftrow", $("#dr-rows")).forEach((b) => b.onclick = () => { this.sel = b.dataset.stem; this.tab = "analysis"; this.draw(); });
+    if (this.sel || this.list[0]) { this.sel = this.sel || this.list[0].stem; this.draw(); }
+  },
+  async draw() {
+    $$(".draftrow", $("#dr-rows")).forEach((b) => b.setAttribute("aria-selected", String(b.dataset.stem === this.sel)));
+    $("#dr-split").classList.add("show-detail");
+    const d = this.list.find((x) => x.stem === this.sel);
+    const el = $("#dr-detail");
+    if (!d) { el.innerHTML = `<div class="empty">That draft is gone.</div>`; return; }
+    const latest = (kind) => d.files.filter((f) => f.kind === kind).at(-1);
+    const kinds = ["analysis", "letter", "resume"].filter((k) => latest(k));
+    if (!kinds.includes(this.tab)) this.tab = kinds[0];
+    el.innerHTML = `<button class="btn quiet back" id="dr-back">Back to list</button>
+      <h2 class="d-title">${esc(d.role || d.stem)}</h2><div class="d-meta"><span>${esc(d.company)}</span></div>
+      <div class="tabs" role="tablist">${kinds.map((k) => `<button role="tab" data-k="${k}" aria-selected="${k === this.tab}">${{ analysis: "Analysis", letter: "Letter", resume: "Resume advice" }[k]}</button>`).join("")}</div>
+      <div id="dr-body">Loading</div>`;
+    $("#dr-back").onclick = () => $("#dr-split").classList.remove("show-detail");
+    $$(".tabs button", el).forEach((b) => b.onclick = () => { this.tab = b.dataset.k; this.draw(); });
+    const f = latest(this.tab);
+    try {
+      const { text } = await api("file?" + qs({ path: f.path }));
+      if (this.tab === "analysis") this.drawAnalysis(text, d);
+      else this.drawEditable(f.path, text);
+    } catch (e) { $("#dr-body").innerHTML = `<p class="problem">${esc(e.message)}</p>`; }
+  },
+  drawAnalysis(text, d) {
+    let a; try { a = JSON.parse(text); } catch { $("#dr-body").innerHTML = `<pre class="log">${esc(text)}</pre>`; return; }
+    const list = (xs) => (xs || []).length ? `<ul>${xs.map((x) => `<li>${esc(typeof x === "string" ? x : JSON.stringify(x))}</li>`).join("")}</ul>` : `<p class="muted">None listed.</p>`;
+    $("#dr-body").innerHTML = `
+      <p style="font-size:18px;margin:0 0 6px"><b class="rec-${esc(d.rec)}">${REC_WORD[d.rec] || esc(a.recommendation)}</b>${a.seniority_fit ? `<span class="muted">, level fit ${esc(a.seniority_fit)}</span>` : ""}</p>
+      ${a.verdict ? `<p class="posting" style="margin-top:6px">${esc(a.verdict)}</p>` : ""}
+      ${(a.gaps || []).length ? `<h3 style="margin-top:18px">Gaps</h3><table class="plain"><tr><th>Requirement</th><th>How serious</th><th>Honest read</th></tr>
+        ${a.gaps.map((g) => `<tr><td>${esc(g.requirement)}</td><td>${esc(g.severity)}</td><td>${esc(g.honest_read || "")}</td></tr>`).join("")}</table>` : ""}
+      <h3 style="margin-top:18px">Strongest matches</h3>${list(a.strongest_matches)}
+      ${(a.keywords || []).length ? `<h3>Keywords to mirror</h3><p>${a.keywords.map(esc).join(", ")}</p>` : ""}
+      <div class="actions" style="margin-top:18px">
+        ${a.posting_url ? `<a class="btn" href="${esc(a.posting_url)}" target="_blank" rel="noopener">Open the posting</a>` : ""}
+      </div>`;
+  },
+  drawEditable(path, text) {
+    $("#dr-body").innerHTML = `<textarea class="letter" id="dr-text" aria-label="Draft text">${esc(text)}</textarea>
+      <div class="actions" style="margin-top:10px"><button class="btn primary" id="dr-save">Save changes</button>
+      <button class="btn" id="dr-copy">Copy text</button><span class="hint">${esc(path)}</span></div>
+      <p class="hint">Check every claim against your resume before sending.</p>`;
+    $("#dr-save").onclick = async () => {
+      try { await api("file?" + qs({ path }), { method: "PUT", body: { text: $("#dr-text").value } }); toast("Saved"); }
+      catch (e) { fail(e); }
+    };
+    $("#dr-copy").onclick = () => navigator.clipboard.writeText($("#dr-text").value).then(() => toast("Copied"), fail);
+  },
+  async pastePanel() {
+    const m = await models();
+    $("#dr-panel").innerHTML = `<div class="panel stack" style="margin-bottom:14px">
+      <h2>Draft from a pasted posting</h2>
+      <label class="field">The whole posting: title, employer, duties, requirements<textarea id="pp-text" rows="9" class="code" style="white-space:pre-wrap"></textarea></label>
+      <div class="row">
+        <label class="field">Write<select id="pp-mode"><option value="letter">A cover letter</option><option value="resume">Resume advice</option><option value="both">Both</option></select></label>
+        <label class="field">Model<select id="pp-model">${modelOptions(m, { generativeOnly: true })}</select></label>
+        <label class="check"><input type="checkbox" id="pp-force"> Draft even if the analysis says not to apply</label>
+        <button class="btn primary" id="pp-go">Analyse and draft</button><button class="btn quiet" id="pp-close">Close</button>
+      </div><div id="pp-log"></div></div>`;
+    const runner = inlineRunner($("#pp-log"), { onDone: () => this.load() });
+    $("#pp-close").onclick = () => $("#dr-panel").innerHTML = "";
+    $("#pp-go").onclick = () => runner.run("tailor", { posting: $("#pp-text").value, mode: $("#pp-mode").value,
+      model: $("#pp-model").value, force: $("#pp-force").checked });
+  },
+  async batchPanel() {
+    const m = await models();
+    $("#dr-panel").innerHTML = `<div class="panel stack" style="margin-bottom:14px">
+      <h2>Draft in bulk</h2>
+      <p class="hint">Works through postings you have not tailored yet, best fit first. One viability call each; only the ones it says to apply to get a letter.</p>
+      <div class="row">
+        <label class="field">Minimum score<input type="number" id="bt-min" min="0" max="100" placeholder="Strong line"></label>
+        <label class="field">At most<input type="number" id="bt-limit" value="10" min="1" max="500"></label>
+        <label class="field">Track<select id="bt-track"><option value="career">Career</option><option value="bridge">Bridge</option><option value="all">Both</option></select></label>
+        <label class="field">Model<select id="bt-model">${modelOptions(m, { generativeOnly: true })}</select></label>
+        <label class="check"><input type="checkbox" id="bt-newest"> Newest first</label>
+      </div>
+      <div class="row"><button class="btn" id="bt-dry">Preview the list</button><button class="btn primary" id="bt-go">Start drafting</button><button class="btn quiet" id="bt-close">Close</button></div>
+      <div id="bt-log"></div></div>`;
+    const runner = inlineRunner($("#bt-log"), { onDone: () => this.load() });
+    const opts = (dry) => ({ dry_run: dry, min_score: $("#bt-min").value, limit: $("#bt-limit").value || 10,
+      track: $("#bt-track").value, model: $("#bt-model").value, newest: $("#bt-newest").checked });
+    $("#bt-dry").onclick = () => runner.run("batch", opts(true));
+    $("#bt-go").onclick = () => runner.run("batch", opts(false));
+    $("#bt-close").onclick = () => $("#dr-panel").innerHTML = "";
+  },
+};
+Router.pages.drafts = Drafts;
+
+/* =======================================================================
+   Scoring
+   ======================================================================= */
+const Scoring = {
+  async render(root) {
+    const m = await models().catch(() => ({ profiles: [] }));
+    const specs = [["", "Stored rubric scores"], ["rubric", "Rubric, configured model"], ["jev", "jev, configured model"],
+      ...m.profiles.filter((p) => p.generative).map((p) => [`rubric:${p.name}`, `Rubric on ${p.name}`]),
+      ...m.profiles.map((p) => [`jev:${p.name}`, `jev on ${p.name}`])];
+    const opt = (list, skipFirst) => list.slice(skipFirst ? 1 : 0).map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("");
+    root.innerHTML = `<div class="page">
+      <div class="page-head"><h1>Scoring</h1></div>
+      <p class="lede">Check how postings are being scored, score the ones a model has not read, and compare scorers before you switch.</p>
+
+      <div class="section"><div class="section-grid">
+        <div class="stack"><h2>Test a title</h2><p class="hint">Scores one made-up posting without saving it. Useful after editing a rubric or a band.</p>
+          <label class="field">Title<input type="text" id="t-title" value="Warehouse Associate - Night Shift"></label>
+          <label class="field">Description (optional)<textarea id="t-desc" rows="4"></textarea></label>
+          <div class="row"><label class="field">Track<select id="t-track"><option value="">Decide from the title</option><option value="career">Career</option><option value="bridge">Bridge</option></select></label>
+          <button class="btn primary" id="t-go">Score it</button></div></div>
+        <div id="t-log"></div></div></div>
+
+      <div class="section"><div class="section-grid">
+        <div class="stack"><h2>Score what has not been read</h2>
+          <p class="hint">Postings recorded with only a keyword estimate (over the cap, or the model was down) get a real score.</p>
+          <div class="row"><label class="field">At most<input type="number" id="b-limit" value="200" min="1"></label>
+          <button class="btn primary" id="b-go">Score them</button></div>
+          <h3 style="margin-top:10px">Rescore after a change</h3>
+          <p class="hint">Re-reads postings that already have a score. Scores from a scorer you no longer use are your only baseline for comparing, so they are protected unless you say otherwise.</p>
+          <div class="row"><label class="field">Only rows scored by<select id="b-scorer"><option value="">Any scorer</option><option value="jev">jev</option><option value="rubric">Rubric</option><option value="keyword">Keywords</option>
+            ${m.profiles.map((p) => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join("")}</select></label>
+          <label class="check"><input type="checkbox" id="b-yes"> Overwrite protected scores</label>
+          <button class="btn" id="b-re">Rescore</button></div></div>
+        <div id="b-log"></div></div></div>
+
+      <div class="section"><div class="section-grid">
+        <div class="stack"><h2>Compare two scorers</h2>
+          <p class="hint">Scores the same stored postings both ways and reports how closely they rank them. Writes nothing. Rank agreement above about 0.8 with few flips means the new one can take over.</p>
+          <label class="field">Baseline<select id="c-left">${opt(specs)}</select></label>
+          <label class="field">Candidate<select id="c-right">${opt(specs, true)}</select></label>
+          <div class="row"><label class="field">Track<select id="c-track"><option value="bridge">Bridge</option><option value="career">Career</option></select></label>
+          <label class="field">Postings<input type="number" id="c-limit" value="60" min="2"></label>
+          <button class="btn primary" id="c-go">Compare</button></div></div>
+        <div id="c-log"></div></div></div>
+
+      <div class="section"><div class="section-grid">
+        <div class="stack"><h2>Calibration</h2><p class="hint">Score spread and tier counts per track, with a warning if one track mixes scorers.</p>
+          <div class="row"><label class="field">Track<select id="k-track"><option value="">Both</option><option value="career">Career</option><option value="bridge">Bridge</option></select></label>
+          <button class="btn primary" id="k-go">Show calibration</button></div>
+          <h3 style="margin-top:10px">Benchmark jev</h3><p class="hint">Eight fixed postings on one model: spread, ranking and speed. Run it per model to compare.</p>
+          <div class="row"><label class="field">Model<select id="j-model">${modelOptions(m)}</select></label>
+          <button class="btn" id="j-go">Benchmark</button></div></div>
+        <div id="k-log"></div></div></div>
+    </div>`;
+    const t = inlineRunner($("#t-log")), b = inlineRunner($("#b-log")), c = inlineRunner($("#c-log")), k = inlineRunner($("#k-log"));
+    $("#c-right").value = "jev";
+    $("#t-go").onclick = () => t.run("test", { title: $("#t-title").value, desc: $("#t-desc").value, track: $("#t-track").value });
+    $("#b-go").onclick = () => b.run("backfill", { limit: $("#b-limit").value });
+    $("#b-re").onclick = () => b.run("backfill", { limit: $("#b-limit").value, rescore: true, scorer: $("#b-scorer").value, yes: $("#b-yes").checked });
+    $("#c-go").onclick = () => c.run("compare", { left: $("#c-left").value, right: $("#c-right").value, track: $("#c-track").value, limit: $("#c-limit").value });
+    $("#k-go").onclick = () => k.run("calibrate", { track: $("#k-track").value });
+    $("#j-go").onclick = () => k.run("bench", { model: $("#j-model").value });
+  },
+};
+Router.pages.scoring = Scoring;
+
+/* =======================================================================
+   Models
+   ======================================================================= */
+const ROLE_WORD = {
+  rubric: "Rubric scorer", jev: "jev scorer", tailor: "Tailoring",
+  tailor_analyze: "Should I apply?", tailor_letter: "Cover letter", tailor_resume: "Resume advice",
+};
+const Models = {
+  async render(root) {
+    root.innerHTML = `<div class="page"><div class="page-head"><h1>Models</h1>
+      <button class="btn" id="m-probe">Test every model in use</button></div>
+      <p class="lede">Which model does each job. Changes save straight to config.yaml, comments intact, with a backup.</p>
+      <div id="m-body">Loading</div><div id="m-log" style="margin-top:16px"></div></div>`;
+    const runner = inlineRunner($("#m-log"));
+    $("#m-log").classList.add("hidden");
+    $("#m-probe").onclick = () => { $("#m-log").classList.remove("hidden"); runner.run("preflight", { probe: true }); };
+    App.models = null;
+    this.draw(await models().catch((e) => (fail(e), null)));
+  },
+  draw(m) {
+    if (!m) return;
+    App.models = m;
+    const pick = (role, track) => m.roles.find((r) => r.role === role && (r.track || null) === (track || null)) || {};
+    const sel = (role, track, generative) => {
+      const cur = pick(role, track);
+      return `<select data-role="${role}" data-track="${track || ""}" aria-label="${esc(ROLE_WORD[role])} ${track || ""}">
+        ${m.profiles.filter((p) => !generative || p.generative).map((p) => `<option value="${esc(p.name)}" ${p.name === cur.profile ? "selected" : ""}>${esc(p.name)}</option>`).join("")}
+        ${cur.profile && !m.profiles.some((p) => p.name === cur.profile) ? `<option selected>${esc(cur.profile)} (built in)</option>` : ""}
+      </select>${cur.problem ? `<div class="problem">${esc(cur.problem)}</div>` : ""}`;
+    };
+    const methodSel = (t) => `<select data-method="${t}" aria-label="Scoring method ${t}">
+      ${[["jev", "jev: bands and yes/no questions"], ["rubric", "Rubric: prose, batches of 20"], ["keyword", "Keywords only, no model"]]
+        .map(([v, l]) => `<option value="${v}" ${m.methods[t] === v ? "selected" : ""}>${l}</option>`).join("")}</select>`;
+    $("#m-body").innerHTML = `
+      ${m.env_override ? `<p class="problem">JOBSCAN_AI is set to “${esc(m.env_override)}” in your environment and overrides what is chosen here.</p>` : ""}
+      <div class="section"><h2>Scoring postings</h2>
+        <table class="plain" style="margin-top:8px"><tr><th>Track</th><th>Method</th><th>jev runs on</th><th>Rubric runs on (and catches jev failures)</th></tr>
+        ${["career", "bridge"].map((t) => `<tr><td>${t === "career" ? "Career" : "Bridge"}</td><td>${methodSel(t)}</td>
+          <td>${sel("jev", t, false)}</td><td>${sel("rubric", t, true)}</td></tr>`).join("")}</table></div>
+      <div class="section"><h2>Tailoring</h2>
+        <table class="plain" style="margin-top:8px"><tr><th>Step</th><th>Model</th><th></th></tr>
+        ${["tailor_analyze", "tailor_letter", "tailor_resume"].map((r) => `<tr><td>${ROLE_WORD[r]}</td><td>${sel(r, null, true)}</td>
+          <td class="hint">${r === "tailor_analyze" ? "Once per posting you tailor" : "Only for postings the analysis says to apply to"}</td></tr>`).join("")}</table></div>
+      <div class="section"><h2>Profiles</h2>
+        <p class="hint">Add or change a profile in <a href="#/settings/models">Settings</a>, under models:.</p>
+        <table class="plain" style="margin-top:8px"><tr><th>Name</th><th>Provider and model</th><th>Where</th><th>Cost</th></tr>
+        ${m.profiles.map((p) => `<tr><td><b>${esc(p.name)}</b></td><td>${esc(p.provider || "")}${p.model ? `, ${esc(p.model)}` : ""}
+          ${p.problem ? `<div class="problem">${esc(p.problem)}</div>` : ""}</td><td class="hint">${esc(p.where || "")}</td>
+          <td>${p.cost === "free" ? "Free" : "Paid"}</td></tr>`).join("")}</table></div>`;
+    $$("select[data-role]").forEach((s) => s.onchange = async () => {
+      try {
+        const nm = await api("models/role", { method: "POST", body: { role: s.dataset.role, track: s.dataset.track || null, profile: s.value } });
+        toast(`${ROLE_WORD[s.dataset.role]}${s.dataset.track ? ` (${s.dataset.track})` : ""} now uses ${s.value}`);
+        this.draw(nm); refreshSide();
+      } catch (e) { fail(e); this.draw(m); }
+    });
+    $$("select[data-method]").forEach((s) => s.onchange = async () => {
+      try {
+        const nm = await api("models/method", { method: "POST", body: { track: s.dataset.method, method: s.value } });
+        toast(`${s.dataset.method === "career" ? "Career" : "Bridge"} postings are now scored by ${s.value}`);
+        this.draw(nm); refreshSide();
+      } catch (e) { fail(e); this.draw(m); }
+    });
+  },
+};
+Router.pages.models = Models;
+
+/* =======================================================================
+   Settings and Resume: one editor, two files
+   ======================================================================= */
+function Editor(which, title, lede) {
+  return {
+    async render(root, [jump]) {
+      root.innerHTML = `<div class="page"><div class="page-head"><h1>${title}</h1>
+        <button class="btn" id="e-check">Check</button><button class="btn primary" id="e-save">Save</button>
+        <span class="muted" id="e-state"></span></div>
+        <p class="lede">${lede}</p>
+        <div class="editor"><nav class="outline" id="e-outline" aria-label="Sections"></nav>
+        <div><textarea class="code" id="e-text" spellcheck="false" aria-label="${esc(title)}"></textarea><ul class="msgs" id="e-msgs"></ul></div></div></div>`;
+      const ta = $("#e-text");
+      let saved = "";
+      try { const d = await api(`config/${which}`); ta.value = saved = d.text; } catch (e) { return fail(e); }
+      const fit = () => { ta.style.height = "auto"; ta.style.height = Math.max(400, Math.min(ta.scrollHeight + 4, innerHeight * 0.78)) + "px"; };
+      fit();
+      const outline = () => {
+        const lines = ta.value.split("\n");
+        $("#e-outline").innerHTML = lines.map((l, i) => /^[A-Za-z_][\w-]*:/.test(l) ? `<button data-line="${i}">${esc(l.split(":")[0])}</button>` : "").join("");
+        $$("#e-outline button").forEach((b) => b.onclick = () => this.jumpTo(+b.dataset.line));
+      };
+      outline();
+      const dirty = () => { $("#e-state").textContent = ta.value !== saved ? "Unsaved changes" : ""; };
+      ta.oninput = () => { dirty(); clearTimeout(this.t); this.t = setTimeout(outline, 400); };
+      ta.onkeydown = (e) => {
+        if (e.key === "Tab") { e.preventDefault(); const s = ta.selectionStart; ta.setRangeText("  ", s, ta.selectionEnd, "end"); dirty(); }
+        if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); save(); }
+      };
+      const show = (d) => {
+        $("#e-msgs").innerHTML = [...(d.errors || []).map((m) => `<li class="e">${esc(m)}</li>`), ...(d.warnings || []).map((m) => `<li class="w">${esc(m)}</li>`)].join("");
+      };
+      const check = async () => {
+        const r = await api(`config/${which}`, { method: "PUT", body: { text: ta.value, check_only: true }, allowError: true });
+        show(r.data);
+        if (r.ok) toast(r.data.warnings?.length ? "Valid, with warnings below" : "No problems found");
+      };
+      const save = async () => {
+        const r = await api(`config/${which}`, { method: "PUT", body: { text: ta.value }, allowError: true });
+        show(r.data);
+        if (!r.ok) return toast("Not saved. Fix the errors below first.", { bad: true });
+        saved = ta.value; dirty(); App.models = null; refreshSide();
+        toast(r.data.backup ? `Saved. The previous version is in backups/${r.data.backup}` : "Saved");
+      };
+      $("#e-check").onclick = check; $("#e-save").onclick = save;
+      window.onbeforeunload = () => (ta.value !== saved ? true : undefined);
+      if (jump) {
+        const i = ta.value.split("\n").findIndex((l) => l.startsWith(jump + ":"));
+        if (i >= 0) setTimeout(() => this.jumpTo(i), 50);
+      }
+    },
+    jumpTo(line) {
+      const ta = $("#e-text");
+      const lines = ta.value.split("\n");
+      const pos = lines.slice(0, line).reduce((a, l) => a + l.length + 1, 0);
+      ta.focus(); ta.setSelectionRange(pos, pos + lines[line].length);
+      const lh = parseFloat(getComputedStyle(ta).lineHeight) || 20;
+      ta.scrollTop = Math.max(0, line * lh - 60);
+    },
+  };
+}
+Router.pages.settings = Editor("config", "Settings",
+  "Everything jobscan does is configured here: sources, filters, both tracks, the jev questions, the rubrics and the models. Check validates it the way a run would; Save keeps a backup of the old file.");
+Router.pages.resume = Editor("resume", "Resume facts",
+  "The scorer and the letter writer may only use facts from this file. If a skill is here that you do not have, the letters will claim it.");
+
+/* =======================================================================
+   Health
+   ======================================================================= */
+const Health = {
+  async render(root) {
+    root.innerHTML = `<div class="page"><div class="page-head"><h1>Health</h1></div>
+      <div class="section"><div class="section-grid">
+        <div class="stack"><h2>Preflight</h2><p class="hint">Checks the config, the resume file, every credential and every model, and pokes each job source once. Costs one Adzuna and one USAJOBS call.</p>
+          <label class="check"><input type="checkbox" id="h-probe"> Also send one tiny request to each model</label>
+          <div><button class="btn primary" id="h-go">Run preflight</button></div>
+          <h3 style="margin-top:12px">Keys and passwords</h3><p class="hint">Read from .env. Values are never shown here.</p><div id="h-env"></div></div>
+        <div id="h-log"></div></div></div>
+      <div class="section"><div class="section-grid">
+        <div class="stack"><h2>Company job boards</h2><p class="hint">The sweep checks every Greenhouse, Lever and Ashby board in a public list. Refresh it now and then; find the board names for specific employers to add them by hand.</p>
+          <div><button class="btn" id="s-refresh">Refresh the board list</button></div>
+          <label class="field">Find boards for these employers<input type="text" id="s-find" placeholder="Urban Institute, RAND Corporation"></label>
+          <div><button class="btn primary" id="s-go">Find</button></div></div>
+        <div id="s-log"></div></div></div></div>`;
+    const h = inlineRunner($("#h-log")), s = inlineRunner($("#s-log"));
+    $("#h-go").onclick = () => h.run("preflight", { probe: $("#h-probe").checked });
+    $("#s-refresh").onclick = () => s.run("slugs", {});
+    $("#s-go").onclick = () => s.run("slugs", { find: $("#s-find").value });
+    try {
+      const env = await api("env");
+      $("#h-env").innerHTML = `<table class="plain">${env.map((e) => `<tr><td><code>${esc(e.key)}</code></td><td class="hint">${esc(e.for)}</td>
+        <td style="white-space:nowrap">${e.set ? '<span class="t-strong">Set</span>' : '<span class="muted">Not set</span>'}</td></tr>`).join("")}</table>`;
+    } catch (e) { fail(e); }
+  },
+};
+Router.pages.health = Health;
+
+/* ---- boot ------------------------------------------------------------- */
+(async function boot() {
+  await refreshSide();
+  api("drafts").then((d) => { $("#nav-drafts").textContent = d.length || ""; }).catch(() => {});
+  Router.render();
+  Tasks.tick();
+  setInterval(refreshSide, 60000);
+})();
+
+</script>
+</body>
+</html>

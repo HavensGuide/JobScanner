@@ -1,0 +1,46 @@
+# Employers whose job boards you want polled directly.
+#
+# Edit this list freely, then run:
+#     python slugs.py --find-file targets.txt --write
+#
+# That matches each name against the ATS slug directory, probes the live API
+# to throw out false matches, and merges the survivors into config.yaml.
+# Add --replace to make config.yaml mirror this file exactly (removals included).
+#
+# Names do not need to be exact. Noise words (Institute, Corporation, Group,
+# Associates, Research, The...) are stripped before matching, so "RAND
+# Corporation" finds the slug "rand".
+#
+# Not every employer will be found. Many use Workday under an unguessable
+# tenant, or iCIMS/Taleo, which have no public feed. A miss is normal.
+
+# ---- Policy & social-science research ----
+Mathematica
+Urban Institute
+RAND Corporation
+MDRC
+Vera Institute of Justice
+Abt Global
+Westat
+NORC
+Brookings Institution
+Chapin Hall
+ideas42
+NYU Furman Center
+Russell Sage Foundation
+Manhattan Institute
+Regional Plan Association
+
+# ---- Economic consulting ----
+Analysis Group
+Cornerstone Research
+NERA Economic Consulting
+The Brattle Group
+Charles River Associates
+Compass Lexecon
+
+# ---- Federal / FFRDC (not on USAJOBS) ----
+MITRE
+Institute for Defense Analyses
+
+# ---- Add your own below ----

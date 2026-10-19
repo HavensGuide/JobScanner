@@ -1,0 +1,73 @@
+name: jobscan
+
+# DISCOVERY ONLY. A GitHub runner cannot reach the model on your machine, so
+# a scheduled run that tried to score would fall through ai.jev to ai.rubric
+# (Haiku) and then to your empty credit balance, and mail you a wall of
+# keyword estimates. The workflow's own comment admitted this; now it simply
+# does not score.
+#
+# If you ever DO want the cloud to score, point ai.rubric at a hosted model
+# you are paying for and drop --no-score. Nothing else needs to change.
+#
+# Discovery still has to be scheduled: postings expire, and the ATS sweep
+# catches boards that will have filled the role within weeks. Scoring does
+# not - a posting sitting unscored in seen.db loses nothing by waiting until
+# you sit down. So the split is:
+#
+#   here, twice a weekday    python main.py --no-score --no-email
+#   on your machine, when    git pull
+#   you feel like it         python score.py --backfill --limit 2000
+#                            python tailor.py list --track career
+#                            git add seen.db && git commit && git push
+#
+# Pull before you score and push after. Both this workflow and your laptop
+# write seen.db, and git cannot merge a binary file: whoever pushes second
+# without pulling first loses the other's work.
+
+on:
+  schedule:
+    # 07:00 and 17:00 America/New_York. GitHub cron is UTC and does NOT
+    # observe DST, so these drift by an hour in winter. Adjust if it matters.
+    - cron: "0 11 * * 1-5"
+    - cron: "0 21 * * 1-5"
+  workflow_dispatch:        # lets you trigger a run manually from the Actions tab
+
+permissions:
+  contents: write           # needed to commit the updated seen.db
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Fetch and record postings
+        env:
+          ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+          USAJOBS_EMAIL: ${{ secrets.USAJOBS_EMAIL }}
+          USAJOBS_API_KEY: ${{ secrets.USAJOBS_API_KEY }}
+          SOCRATA_APP_TOKEN: ${{ secrets.SOCRATA_APP_TOKEN }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        # No model keys and no SMTP credentials here on purpose: this run
+        # cannot score and must not mail. Leaving them out means a mistake
+        # fails loudly instead of quietly spending money or sending noise.
+        run: python main.py --no-score --no-email
+
+      - name: Persist seen-jobs database
+        run: |
+          if [[ -n "$(git status --porcelain seen.db .board-stats.json)" ]]; then
+            git config user.name  "jobscan bot"
+            git config user.email "actions@github.com"
+            git add seen.db .board-stats.json
+            git commit -m "jobscan: discovery run [skip ci]"
+            git push
+          fi

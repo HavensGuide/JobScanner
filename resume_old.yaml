@@ -1,0 +1,275 @@
+# Your resume as structured facts. The letter generator may ONLY use what's
+# in here — that constraint is what keeps it from inventing experience.
+# Add detail freely; more raw material means better matching.
+# This revision preserves the complete fact base and changes only two
+# rhetorical phrasings plus the application-writing voice rules.
+
+name: Kai K. Cobbs
+location: Springfield, NJ
+phone: (862) 208-9438
+email: kaicobbs4@gmail.com
+linkedin: www.linkedin.com/in/kai-cobbs-07535322a
+education:
+  degree: B.A. in Economics, Minor in Sociology
+  school: Rutgers University–Newark
+  graduated: May 2026
+  coursework:
+  - Econometrics
+  - Statistics
+  - Microeconomics
+  - Macroeconomics
+  - Data Analysis
+  - Research Methods
+  - Sociology of Organizations
+skills:
+  technical:
+  - Python (pandas, NumPy, SciPy, statsmodels, PyTorch)
+  - PyTorch/CUDA GPU computing
+   -Tensorflow
+   -SQL 
+   -scikit-learn
+  - Microsoft Excel
+  - Statistical and econometric analysis
+  - Hypothesis testing and inferential statistics
+  - OLS regression, fixed effects, and interaction models
+  - Effect-size estimation and post-hoc testing
+  - Bayesian statistical modeling
+  - Changepoint analysis
+  - Causal-inference research support, data preparation, and methodology research
+  - Longitudinal and cross-sectional data analysis
+  - Data visualization and reporting
+  - API integration and automation in Python
+  research:
+  - Quantitative research design
+  - Comparative historical research
+  - Large-dataset cleaning and management
+  - Archival research and source verification
+  - Policy research and policy writing
+  - Literature review and research synthesis
+  - Translating technical findings for non-technical audiences
+  operations:
+  - Documentation and records compliance
+  - Confidential / PII data handling
+  - Recordkeeping and process improvement
+  - Data quality assurance and discrepancy resolution
+  - Concurrent project management
+  communication:
+  - Written and verbal communication
+  - Public speaking and presentations
+  - Cross-functional coordination
+  - Stakeholder communication
+  - Community organizing
+experience:
+- role: Research Assistant
+  org: Rutgers University–Newark, School of Criminal Justice
+  dates: Feb 2024 – Aug 2025
+  note: Overlapped with a separate research appointment at the Center for Politics and Race in America.
+  supervisors:
+  - Frank Edwards
+  - Theresa Rocha Beardall
+  facts:
+  - Managed, cleaned, organized, and quality-checked large historical datasets used in quantitative social-science research.
+  - Worked under Frank Edwards and Theresa Rocha Beardall on quantitative comparative-historical research examining U.S. state
+    formation, racial inequality, settler colonialism, and the development of carceral and social-welfare institutions.
+  - Contributed research and data work to the research program associated with "Simultaneous Settler Projects and U.S. Racial
+    State Formation," which combined historical U.S. Census data with archival data on land dispossession, sharecropping,
+    immigration, institutional employment, confinement, and Indian boarding schools.
+  - Supported Bayesian and changepoint research through historical-data preparation, methodological research, and model-specification
+    discussions.
+  - Collected and prepared data for planned causal-inference analyses, researched modeling choices, and discussed specifications
+    with the research team; assistantship funding ended before direct participation in final model estimation.
+  - Analyzed longitudinal historical data to identify structural changes and long-run patterns in federal policy and state
+    institutional development.
+  - Compiled, digitized, and cross-checked archival records spanning the 1800s–1900s, verifying sources and documentation
+    before incorporating records into research datasets.
+  - Produced written summaries and quantitative insights for senior researchers while managing multiple research workstreams
+    concurrently.
+  research_context:
+  - The Edwards and Rocha Beardall research program examined spatial and temporal variation in U.S. state formation during
+    the Progressive Era using archival and Census data.
+  - One associated paper used Bayesian hierarchical regression estimated with Hamiltonian Monte Carlo, including negative-binomial
+    and logistic models. Do not describe that paper itself as a formal causal-inference study; its authors explicitly characterize
+    its main analysis as descriptive and interpretive.
+- role: Research Assistant
+  org: Rutgers University–Newark, Center for Politics and Race in America
+  dates: Mar 2023 – May 2025
+  note: Overlapped with a separate research appointment at the School of Criminal Justice.
+  supervisors:
+  - James Jones
+  facts:
+  - Worked under James Jones on a multi-year research project examining racial and gender representation, compensation, and
+    senior staffing in the Biden White House.
+  - Built and analyzed an original longitudinal dataset covering 1,052 unique paid White House staffers from 2021–2024, representing
+    90.5 percent of the target population in the project dataset.
+  - Conducted statistical analysis in Python using pandas, NumPy, SciPy, and statsmodels, including chi-square goodness-of-fit
+    and independence tests, one-way ANOVA, Kruskal-Wallis tests, Welch's t-tests, Tukey HSD post-hoc comparisons, and OLS
+    regression.
+  - Estimated and interpreted OLS models with year fixed effects and race-by-gender interaction terms to test salary differences
+    across demographic groups while checking robustness across model specifications.
+  - Calculated and reported effect sizes including Cramer's V, Cohen's d, eta-squared, and epsilon-squared alongside significance
+    tests.
+  - Analyzed year-over-year racial representation among White House commissioned officers, distinguishing officer-year records
+    from unique officers and benchmarking representation against Biden-coalition and Democratic-electorate measures.
+  - Produced statistical writeups, tables, charts, and policy-facing interpretations on representation, salary stratification,
+    commissioned-officer composition, and the limits of intersectional compounding.
+  - Conducted literature review and source verification on representative bureaucracy, presidential staffing, and executive-branch
+    diversity, including identifying unverified claims and documented data gaps before publication or internal use.
+  - Synthesized evidence from White House personnel reports, Joint Center analyses, Pew Research Center, Catalist, academic
+    literature, and archival or public records into research products for internal review.
+  research_outputs:
+  - 'Racial Representation in Biden''s White House: Statistical Findings on Representation, Pay Stratification, and the Limits
+    of Intersectional Compounding'
+  - Who Gets a Seat Closest to the President? Racial Representation Among Biden White House Commissioned Officers, 2021–2024
+  - 'Annotated Bibliography: Racial Representation Among Senior White House Staff, Representative Bureaucracy, and the Politics
+    of Presidential Staffing'
+- role: Project Intern
+  org: PwC
+  dates: Oct 2023 – Mar 2024
+  facts:
+  - Developed an impact-assessment strategy for the Emerging Leaders Fellowship and the Achievement Project at The Mind Trust,
+    a nonprofit supporting Indianapolis schools.
+  - Gathered and synthesized research to define measurable program outcomes, success metrics, and an evaluation framework.
+  - Coordinated project deliverables and presented recommendations to program stakeholders.
+- role: Roosevelt in Washington Fellow, Economic Speakers Bureau
+  org: Groundwork Collaborative
+  dates: May 2024 – Aug 2024
+  facts:
+  - Conducted research at the intersection of media, economics, and public policy to support the Economic Speakers Bureau.
+  - Assisted with development and execution of the Economic Speakers Bureau initiative.
+  - Collaborated with staff to identify partnership and earned-media opportunities.
+  - Served as a liaison between the Economic Speakers Bureau, internal teams, and external stakeholders.
+  - Reviewed FOMC meeting materials and SEC filings as primary sources for economic policy research.
+- role: Intern & Research Fellow
+  org: Roosevelt Network / Roosevelt Institute
+  dates: Jun 2023 – Aug 2024
+  facts:
+  - Conducted economic policy research and analysis in a think-tank setting.
+  - Authored a policy brief and delivered presentations analyzing the potential economic impact of Universal Basic Income.
+  - Researched the relationship between media and economic outcomes to strengthen policy analysis.
+  - Translated complex economic concepts and research findings into clear language for non-technical audiences.
+- role: Temporary Account Executive
+  org: Alliance Advisors
+  dates: Feb 2026 - August 2026
+  status: Completed temporary position; no longer employed by Alliance Advisors.
+  facts:
+  - Built and maintained structured analytical datasets for workforce and organizational reporting.
+  - Cleaned records, coded variables, resolved missing and inconsistent fields, and deduplicated observations before analysis.
+  - Validated quantitative summaries and underlying records before they were used in reporting.
+  - Worked carefully with sensitive and confidential records under accuracy and documentation requirements.
+- role: Research Development Project Lead
+  org: Labor of Change
+  dates: Mar 2025 – Jul 2025
+  facts:
+  - Led research and development work focused on cooperative structures, labor policy, participatory governance, and economic
+    democracy.
+  - Researched legal barriers to cooperative formation, gig-worker unionization challenges, labor-market transitions, and
+    state regulatory frameworks.
+  - Coordinated cross-functional work on technology, policy, and organizing initiatives.
+  - Built relationships with housing-justice organizations, labor advocates, academic institutions, and policy stakeholders.
+- role: Summer Research Fellow
+  org: Princeton University, Ida B. Wells Just Data Lab / ASAP Fellowship
+  dates: Jun 2022 – Jul 2023
+  facts:
+  - Participated in faculty-mentored research and professional-development workshops through the Ida B. Wells Just Data Lab
+    and ASAP Fellowship.
+  - Designed and produced a data visualization on environmental racism and environmental issues in Newark, NJ, gathering and
+    interpreting the underlying data and translating raw figures into an accessible visual narrative.
+  - Presented the environmental-racism research project at the 2022 Civics of Technology Conference.
+projects:
+- name: Market Geometry — Time-Resolved Density Estimation on Transaction Data
+  type: Independent quantitative research
+  stack: Python, PyTorch/CUDA, pandas, NumPy, statsmodels, Shapely
+  facts:
+  - Built a GPU-accelerated kernel density estimator over 242,605 NYC property transactions from 2015–2024 to measure how
+    local price structure varies across market segments and changes over time.
+  - Derived analytic gradients and adapted bandwidth to local sample density.
+  - Implemented a strictly causal temporal weighting system with zero lookahead and a walk-forward validation harness across
+    72 time slices on a 400×400 state-space grid.
+  - Built the analysis around point-in-time correctness so future observations could not contaminate historical estimates.
+  - Derived analytic gradients, time derivatives, and field-calculus diagnostics including flux, divergence, and continuity
+    residuals to localize where transaction activity accumulates or dissipates.
+  - Used GPU-based numerical computation to make large-scale, time-resolved estimation practical.
+- name: Automated Job Intelligence System
+  type: Independent software / agentic systems project
+  stack: Python, REST APIs, Anthropic API, SQLite, GitHub Actions, YAML
+  facts:
+  - Built an automated job-search and application-intelligence system that collects postings from Adzuna, USAJOBS, NYC Open
+    Data, and public ATS job-board feeds.
+  - Implemented structured job normalization, location filtering, deduplication, SQLite persistence, and scheduled runs so
+    previously reviewed postings are not repeatedly surfaced.
+  - Built LLM-assisted job-fit scoring against a structured candidate fact base, with explicit gating for structural eligibility
+    barriers such as required licenses, civil-service status, enrollment windows, and experience floors.
+  - Designed agentic prompt workflows for job analysis, resume tailoring, cover-letter drafting, and eligibility screening
+    while constraining generated claims to facts stored in resume.yaml.
+  - Built safeguards that distinguish incomplete job excerpts from full postings, preserve low-confidence results for review,
+    and prevent unsupported tools or experience from being inserted into application materials.
+  - Automated digest generation and delivery and designed the system to run on a recurring GitHub Actions schedule.
+voice:
+- Direct and specific. No filler enthusiasm and never use "I am excited to apply."
+- Open with a concrete fit, problem, method, or piece of experience. Do not use generic application language.
+- Do not use em dashes. Prefer commas, colons, semicolons, or separate sentences.
+- Three or four body paragraphs, usually 350–450 words total unless the posting calls for something shorter.
+- At least one paragraph should bridge a real past task to a specific duty in the posting.
+- Never claim experience with a tool, system, method, or domain not supported by the facts above.
+- Do not turn a cover letter into a self-assessment. Mention at most one material gap, and only when hiding it would be misleading.
+- No superlatives about the employer and no generic flattery.
+- Prefer concrete nouns, verbs, methods, datasets, and outcomes over abstract claims about passion or fit.
+- Treat the Automated Job Intelligence System as private evidence of capability, not as a default resume or cover-letter project.
+- Do not name, describe, or feature the Automated Job Intelligence System in application materials unless the role specifically
+  centers on agentic AI, LLM systems, prompt engineering, AI workflow orchestration, or closely related tooling.
+- Skills demonstrated by the Automated Job Intelligence System, such as agentic workflow design, prompt engineering, API integration,
+  structured-output design, automation, and persistent workflow state, may be listed or described when directly relevant without
+  volunteering that the underlying project automated a personal job search.
+- For ordinary quantitative, data, economics, policy, research, consulting, or finance roles, omit the Automated Job Intelligence
+  System entirely and prioritize domain-relevant projects and supervised work.
+- Never invent a different project or employer context to explain skills learned through the Automated Job Intelligence System.
+  If detailed evidence is requested, describe the underlying work accurately or omit the claim.
+- Distinguish direct model execution from research support. For causal inference at the School of Criminal Justice, state
+  that the candidate collected and prepared data, researched modeling choices, and discussed specifications; do not claim
+  direct participation in final model estimation.
+- Write like a technically literate person talking to another person, not like an academic abstract. Do not repeatedly use
+  labels such as “longitudinal,” “cross-sectional,” “quantitative research,” “stakeholder,” “rigorous,” “methodological,”
+  or “research synthesis” when plain English communicates the same fact. Prefer “tracked over four years” to “longitudinal,”
+  “worked with” to “stakeholder engagement,” and concrete descriptions of what was done over category labels. Technical terminology
+  should appear when it conveys information, not merely because it exists in the fact base.
+- Avoid repeating a distinctive technical or professional term more than once in a document unless repetition is necessary
+  for accuracy or a job-specific keyword.
+- Bullets should be broken into discrete ideas. Do not write list-like sentences such as “did X, Y, Z, A, B, C.”
+- Avoid the contrastive X-not-Y tic. Across a document, do not use constructions built around “rather than,” “instead
+  of,” “not X but Y,” or a similar manufactured contrast; unless not doing so would explicitly lead to akward phrasing. State the action directly whenever the contrast is not essential.
+- Resume bullets should state what was done, how it was done when relevant, and what came out of it. Do not append a methodological
+  defense, a mini-lesson, or an explanation of why the choice was smarter than an alternative.
+- Do not turn a resume bullet into commentary for a grader. Phrases such as “to ensure rigor,” “to demonstrate discipline,”
+  “so the result was trustworthy,” or “the same discipline required by…” should usually be cut unless they describe an actual
+  measured outcome.
+- A cover letter must add information or perspective that the resume cannot hold. Do not translate a resume bullet into prose
+  and then repeat its methods and metrics. When discussing a project already on the resume, use the letter for a decision,
+  surprise, failed approach, tradeoff, debugging lesson, changed assumption, or reason the problem mattered.
+- Do not force every cover-letter paragraph into the same structure of abstract topic sentence, evidence, and concluding bridge.
+  Vary paragraph length and entry point. Let one paragraph begin with a concrete event or decision if that is more natural.
+- Avoid stock AI transitions and self-summaries such as “that discipline carries,” “maps directly onto,” “the bridge from,”
+  “what I bring,” “the clearest starting point,” “that experience taught me,” “this aligns directly,” and “the core of what
+  I have done.” Use plain transitions or none.
+- Use normal technical punctuation. Ordinary hyphens belong in compound modifiers such as “walk-forward,” “point-in-time,”
+  “state-space,” “cross-sectional,” and “non-technical.” Use an en dash for numeric or date ranges when appropriate and the
+  multiplication sign in forms such as “400×400.” Do not strip normal technical punctuation to satisfy the no-em-dash rule.
+- In generated source text, use ordinary visible hyphens, not the Unicode nonbreaking hyphen character. Document formatting
+  may prevent awkward line breaks without changing the visible punctuation.
+- Do not upgrade a method, project, or context merely because a posting uses a stronger keyword. Descriptive estimation is
+  not automatically predictive modeling; temporal validation is not automatically forecasting; statistical research is not
+  automatically machine learning; numerical computation is not automatically numerical optimization; transaction data is not
+  automatically financial-market microstructure.
+- Do not call code “production-grade” unless the facts establish deployment, reliability, monitoring, operational ownership,
+  or another concrete production criterion. “Built,” “implemented,” or “automated” is usually enough.
+- Do not turn research support into direct model execution. Preserve the distinction between preparing data, researching methods,
+  discussing specifications, and actually estimating a final model.
+- Prefer human-scale explanations over category labels. If a sentence can say “tracked 1,052 staffers over four years,” do
+  not default to “conducted longitudinal analysis.” If it can say “worked with partner organizations,” do not default to “stakeholder
+  engagement.”
+- Do not repeat a project’s full stack or method list in both the resume and cover letter. The resume can carry the inventory;
+  the letter should select only the one or two details needed for the story being told.
+- Do not manufacture sophistication with extra adjectives. Words such as “rigorous,” “robust,” “sophisticated,” “complex,”
+  “production,” “strategic,” and “advanced” should appear only when the surrounding facts make the adjective informative.
+- For technical applications, sound like a practitioner describing work to another practitioner. Preserve standard notation
+  and concrete numbers, but do not explain obvious methodological virtues unless the decision itself is the point of the story.
+- Do not just restate skills the role asks for; example: "The role involves processing data, supporting model updates, producing analytics reporting, and working with Engineering, Product, Paid Media, and Data Science."
