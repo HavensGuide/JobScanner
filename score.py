@@ -693,6 +693,12 @@ def professional_titles(cfg):
     return tuple(t.lower() for t in v) if v else _PROFESSIONAL_TITLE
 
 
+def bridge_never(cfg):
+    """Title words that are never bridge work (bridge.never)."""
+    return tuple(s.lower() for s in
+                 ((cfg.get("bridge") or {}).get("never") or []))
+
+
 def track_terms(cfg):
     """
     (career, bridge, exclude, tolerated) term lists from a loaded config.yaml.
@@ -727,7 +733,7 @@ _PROFESSIONAL_TITLE = (
 
 
 def classify_track(job, career_terms=(), bridge_terms=(), bridge_exclude=(),
-                   bridge_tolerated=(), professional=None):
+                   bridge_tolerated=(), professional=None, never=()):
     """
     "career", "bridge", or None to drop the posting entirely.
 
@@ -761,6 +767,15 @@ def classify_track(job, career_terms=(), bridge_terms=(), bridge_exclude=(),
                  and not any(t in title
                              for t in (professional or _PROFESSIONAL_TITLE)))
     if any(t in title for t in bridge_terms):
+        # A professional title that happens to contain a bridge word is a
+        # career question: "Software Engineer, Backend, Accounts
+        # Receivable" reached the bridge digest at 87 because "engineer"
+        # only ever protected a title from bridge.exclude, it never moved
+        # it off the track.
+        if any(t in title for t in (professional or _PROFESSIONAL_TITLE)):
+            return "career"
+        if any(t in title for t in never):
+            return None
         return None if ruled_out else "bridge"
     # Matches neither list. Before the bridge track this went straight to the
     # career rubric and scored ~10; now that the contact constraint is written
@@ -1083,7 +1098,9 @@ def score_jobs(jobs, cfg=None, facts_path="resume.yaml", signals=()):
         n, err = jev.score_track(
             of_track, cfg.get("jev"),
             focus=lambda j: _focus_description(
-                j.get("description") or "", cfg["desc_chars"]),
+                j.get("description") or "",
+                int((cfg.get("jev") or {}).get("desc_chars")
+                    or cfg["desc_chars"])),
             track=track, facts_path=facts_path, profile=prof)
         if err:
             print(f"  ! jev ({track}): {err}; falling back to the rubric "
@@ -1095,6 +1112,7 @@ def score_jobs(jobs, cfg=None, facts_path="resume.yaml", signals=()):
         for j in of_track:
             r = j.pop("_jev", None)
             if r:
+                j["score_detail"] = r.get("detail") or ""
                 mark(j, r["score"], r["reason"], review=r["review"],
                      scorer="jev", model=llm.label(prof))
 
@@ -1594,7 +1612,8 @@ def cmd_backfill(args):
         if not j.get("track"):
             j["track"] = (classify_track(j, career_terms, bridge_terms,
                                          bridge_exclude, bridge_tolerated,
-                                         professional_titles(cfg))
+                                         professional_titles(cfg),
+                                         bridge_never(cfg))
                           or "career")
             filled += 1
     if filled:
@@ -1616,7 +1635,8 @@ def cmd_test(args):
     job = {"title": args.test, "company": "", "location": "",
            "posted": args.posted or "", "description": args.desc or ""}
     auto = classify_track(job, career_terms, bridge_terms, bridge_exclude,
-                          bridge_tolerated, professional_titles(cfg))
+                          bridge_tolerated, professional_titles(cfg),
+                          bridge_never(cfg))
     if args.track:
         job["track"] = args.track
     elif auto is None:

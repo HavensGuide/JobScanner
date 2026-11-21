@@ -68,6 +68,19 @@ MIGRATIONS = {
     # Which MODEL, as "profile:model" from llm.label(). NULL on older rows
     # and on keyword/rule/none rows, which used no model.
     "scorer_model": "TEXT",
+    # How jev reached the score: the band distribution, the expected
+    # value, every cap and penalty, and each question's probability. The
+    # `reason` column says what the verdict was in one line; this says how
+    # it got there, which is what you need when a score looks wrong.
+    "score_detail": "TEXT",
+    # The drafting gates' verdict, recorded without drafting anything:
+    # "recommended", "review" or "no". Written by `tailor.py screen`, which
+    # runs the free deterministic rules and the local jev pre-scan and
+    # stops there. Separate from `status`, which is where YOU put a
+    # posting, and from `tier`, which is how well it scored.
+    "draft_rec": "TEXT",
+    "draft_reason": "TEXT",
+    "draft_screened_at": "TEXT",
     # A flag you set, kept apart from `status` on purpose. Status is where a
     # posting is in the workflow and its values are exclusive, so marking
     # something applied would otherwise lose the fact that you had flagged
@@ -280,14 +293,15 @@ def record(conn, jobs):
         """INSERT OR IGNORE INTO jobs
            (uid, source, title, company, location, url, posted, salary,
             description, desc_quality, first_seen, score, tier, reason,
-            scored_at, track, scorer, scorer_model, fingerprint)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            scored_at, track, scorer, scorer_model, fingerprint,
+            score_detail)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         [(j["uid"], j["source"], j["title"], j["company"], j["location"],
           j["url"], j["posted"], j["salary"], j.get("description", ""),
           j.get("desc_quality"), now,
           j.get("score"), j.get("tier"), j.get("reason"), j.get("scored_at"),
           j.get("track") or "career", j.get("scorer"), j.get("scorer_model"),
-          j.get("fingerprint") or fingerprint(j))
+          j.get("fingerprint") or fingerprint(j), j.get("score_detail"))
          for j in jobs],
     )
     conn.commit()
@@ -297,10 +311,10 @@ def update_scores(conn, jobs):
     """Write scores onto rows that already exist. Used by --backfill."""
     conn.executemany(
         "UPDATE jobs SET score=?, tier=?, reason=?, scored_at=?, track=?, "
-        "scorer=?, scorer_model=? WHERE uid=?",
+        "scorer=?, scorer_model=?, score_detail=? WHERE uid=?",
         [(j.get("score"), j.get("tier"), j.get("reason"), j.get("scored_at"),
           j.get("track") or "career", j.get("scorer"), j.get("scorer_model"),
-          j["uid"])
+          j.get("score_detail"), j["uid"])
          for j in jobs],
     )
     conn.commit()

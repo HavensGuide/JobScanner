@@ -174,10 +174,17 @@ def check_facts(cfg):
         return
     data = yaml.safe_load(open(path, encoding="utf-8")) or {}
     n_exp = len(data.get("experience", []))
+    n_voice = len(data.get("voice", []))
     if not n_exp:
         report(BAD, path, "no experience entries; scores will be meaningless")
     else:
-        report(OK, path, f"{n_exp} roles, {len(data.get('voice', []))} voice rules")
+        report(OK, path, f"{n_exp} roles, {n_voice} voice rules")
+    # load_facts() pops `voice` and joins it. With the block missing that
+    # join returns "", every prompt gets an empty VOICE RULES section, and
+    # nothing anywhere says so. The drafts just quietly come back generic.
+    if not n_voice:
+        report(BAD, path, "no `voice:` block — every draft would be written "
+                          "with no voice rules at all, silently")
 
 
 def _roles_in_use(cfg):

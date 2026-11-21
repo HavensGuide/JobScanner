@@ -113,6 +113,10 @@ IMPORTANT GAP RULES:
 - Do not rescue a weak fit merely because a cover letter could theoretically
   explain adjacent experience.
 
+KEEP IT SHORT. Every "honest_read" is at most two sentences, and there are
+at most four gaps. A long reply gets cut off at the token ceiling and the
+whole analysis is lost.
+
 POSTING COMPLETENESS: {quality}. If this is not "full", default to
 "manual_review" unless a visible fact already makes the candidate clearly
 ineligible. Never invent missing requirements.
@@ -214,6 +218,57 @@ CANDIDATE FACTS:
 <facts>
 {facts}
 </facts>"""
+
+REWRITE = """Rewrite the document below, following the instruction from the
+candidate.
+
+Their instruction is the point of this pass. Do what they asked. Do not
+also take the opportunity to restructure, re-order or re-argue anything
+they did not mention: they have read this draft and want one thing changed.
+
+Every factual claim must still trace to the candidate facts. If what they
+ask for cannot be done without inventing something, do as much of it as the
+facts allow and leave the rest alone.
+
+Output the rewritten document only, nothing else. No commentary, no summary
+of what you changed, no code fences.
+
+WHAT THEY WANT CHANGED:
+{notes}
+
+THE CURRENT DRAFT:
+{draft}
+
+CANDIDATE FACTS (complete — nothing outside this exists):
+<facts>
+{facts}
+</facts>
+
+VOICE RULES:
+{voice}"""
+
+REVISE = """Below is a cover letter you wrote, and a list of specific places
+where it breaks the candidate's voice rules.
+
+Fix exactly those. Do not rewrite anything else: not the structure, not the
+examples, not the claims, not the paragraphs that were not flagged. Every
+fact must stay as it is.
+
+Each item names the rule and quotes the text. Where a sentence has to be
+rephrased to remove a banned construction, keep what it was saying and
+change how it says it. Do not solve a problem by deleting the content.
+
+Output the corrected letter only, date line through signature. No
+commentary, no list of what you changed, no code fences.
+
+WHAT TO FIX:
+{problems}
+
+THE LETTER:
+{draft}
+
+VOICE RULES, for reference:
+{voice}"""
 
 # The advice prompt above tells the candidate what to change. This one makes
 # the change: a complete resume, ordered and worded for one posting, that
@@ -416,15 +471,128 @@ def ask(cl, prompt, max_tokens=2500, step="analyze"):
                         int(p.get("max_tokens") or max_tokens))
 
 
-def parse_json(text):
-    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
+def parse_json(text, what="analysis"):
+    """
+    The model's JSON, recovered where possible.
+
+    Three things go wrong in practice. The model wraps the object in prose
+    or fences. It emits a trailing comma. Or the response is cut off at the
+    token ceiling part-way through a string, which is what a long gaps
+    table does: the old code then threw a JSONDecodeError traceback at the
+    user, having already paid for the call.
+
+    Truncation is recoverable. The content up to the cut is real, so the
+    repair closes whatever was left open and keeps it, rather than throwing
+    away a paid response because its last field is incomplete.
+    """
+    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", (text or "").strip())
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
-        m = re.search(r"\{.*\}", cleaned, re.S)
-        if not m:
-            die("model did not return usable JSON. Try again.")
-        return json.loads(m.group(0))
+        pass
+
+    start = cleaned.find("{")
+    if start < 0:
+        _json_failed(cleaned, what, "contained no JSON object")
+    body = cleaned[start:]
+
+    # A balanced scan beats a greedy regex: it stops at the matching brace
+    # instead of the last one in the file, so trailing prose is dropped.
+    end = _balanced_end(body)
+    if end is not None:
+        candidate = body[:end]
+        for attempt in (candidate, re.sub(r",(\s*[}\]])", r"\1", candidate)):
+            try:
+                return json.loads(attempt)
+            except json.JSONDecodeError:
+                continue
+
+    repaired = _close_truncated(body)
+    if repaired is not None:
+        try:
+            out = json.loads(repaired)
+        except json.JSONDecodeError:
+            out = None
+        # A reply cut off in its first field repairs to {} or near enough.
+        # Returning that would hand the pipeline an analysis with no
+        # decision in it, which is worse than admitting the call failed.
+        if isinstance(out, dict) and (out.get("recommendation")
+                                      or out.get("verdict") or out.get("gaps")):
+            missing = [k for k in ("recommendation", "verdict", "gaps",
+                                   "strongest_matches") if not out.get(k)]
+            print("  ! the model's reply was cut off; recovered what arrived."
+                  + (f" Missing: {', '.join(missing)}." if missing else ""))
+            return out
+    _json_failed(cleaned, what, "could not be parsed, even after repairing a cut-off reply")
+
+
+def _scan(s):
+    """Walk JSON tracking string state. Yields (index, char, depth, in_str)."""
+    depth, in_str, esc = 0, False, False
+    for i, ch in enumerate(s):
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            yield i, ch, depth, True
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch in "{[":
+            depth += 1
+        elif ch in "}]":
+            depth -= 1
+        yield i, ch, depth, False
+
+
+def _balanced_end(s):
+    """Index just past the brace that closes the first one, or None."""
+    for i, ch, depth, in_str in _scan(s):
+        if not in_str and ch in "}]" and depth == 0:
+            return i + 1
+    return None
+
+
+def _close_truncated(s):
+    """
+    Close a JSON object that stops mid-way, discarding the partial tail.
+
+    Cuts back to the last point where a value was complete, then closes
+    every structure still open. What survives is everything the model had
+    finished saying.
+    """
+    stack, cut, in_str = [], None, False
+    for i, ch, _d, instr in _scan(s):
+        in_str = instr
+        if instr:
+            continue
+        if ch in "{[":
+            stack.append("}" if ch == "{" else "]")
+            cut = i + 1
+        elif ch in "}]":
+            if stack:
+                stack.pop()
+            cut = i + 1
+        elif ch == ",":
+            cut = i            # a comma means the value before it finished
+    if not stack or cut is None:
+        return None
+    head = s[:cut].rstrip().rstrip(",")
+    return head + "".join(reversed(stack))
+
+
+def _json_failed(raw, what, why):
+    path = out_dir() / f"_failed_{what}.txt"
+    try:
+        path.write_text(raw, encoding="utf-8")
+        where = f"\nThe raw reply is in {path} if you want to look."
+    except OSError:
+        where = ""
+    die(f"the model's {what} {why}. The call was made and billed, so try "
+        f"again or use a different model with --model.{where}")
 
 
 def normalize_recommendation(value):
@@ -1041,7 +1209,7 @@ def process_job(posting, company, role, args, facts, voice, cl,
         analysis = parse_json(ask(
             cl, ANALYZE.replace("{posting}", posting).replace("{facts}", facts)
                  .replace("{today}", TODAY)
-                 .replace("{quality}", str(desc_quality or "unknown")), 2600,
+                 .replace("{quality}", str(desc_quality or "unknown")), 4000,
             "analyze"))
         normalized = normalize_recommendation(analysis.get("recommendation"))
         if normalized:
@@ -1096,6 +1264,7 @@ def process_job(posting, company, role, args, facts, voice, cl,
     if want_letter:
         say("\nDrafting letter...")
         letter = ask(cl, LETTER.format(voice=voice, **payload), 2000, "letter")
+        letter = _voice_pass(letter, voice, cl, args, say)
         f = day / f"{stem}__letter.md"
         f.write_text(letter.strip() + "\n", encoding="utf-8")
         written.append(f)
@@ -1151,7 +1320,7 @@ def _review_only(posting, facts, desc_quality, company, role, cl, url,
     analysis = parse_json(ask(
         cl, ANALYZE.replace("{posting}", posting).replace("{facts}", facts)
              .replace("{today}", TODAY)
-             .replace("{quality}", str(desc_quality or "unknown")), 2600,
+             .replace("{quality}", str(desc_quality or "unknown")), 4000,
         "analyze"))
     normalized = normalize_recommendation(analysis.get("recommendation"))
     if normalized:
@@ -1245,6 +1414,101 @@ def _save_description(uid, description, quality, say=print, url=None):
         say(f"  ! could not store the fetched text: {type(e).__name__}: {e}")
 
 
+def _voice_pass(draft, voice, cl, args, say=print):
+    """
+    Check the draft mechanically, and spend one call fixing what it finds.
+
+    The 34 voice rules reach the model in the last third of a very long
+    prompt, and almost all of them are prohibitions, which is the kind of
+    instruction a model follows worst. Asking harder does not fix that.
+
+    Checking does. Most of those rules are a regex - an em dash is a
+    character, "I am excited to apply" is a string - so voicecheck.py finds
+    the breaches perfectly and for free. This then hands the model the
+    short, specific list, which is a job models are good at, instead of
+    asking it to hold 34 prohibitions in mind while composing.
+
+    One pass only. If a second attempt still breaks a rule the letter needs
+    a person, not another call. Warnings are reported and never auto-fixed,
+    because they are judgment calls.
+    """
+    if getattr(args, "no_voice_check", False):
+        return draft
+    try:
+        import voicecheck
+    except ImportError:
+        return draft
+
+    try:
+        root = yaml.safe_load(open(getattr(args, "config", None)
+                                   or "config.yaml", encoding="utf-8")) or {}
+    except (FileNotFoundError, yaml.YAMLError):
+        root = {}
+
+    found, jev_ran = voicecheck.check_all(draft, root.get("jev"))
+    errors = [f for f in found if f[0] == "ERROR"]
+    warns = [f for f in found if f[0] == "WARN"]
+    # A jev finding is a probability, not a fact, so only a confident one
+    # earns a paid rewrite. The rest are reported for you to judge.
+    thr = float((root.get("jev") or {}).get("voice_revise_at", 0.85))
+    jev_strong = [f for f in warns if _jev_p(f[1]) is not None
+                  and _jev_p(f[1]) >= thr]
+    if jev_ran:
+        say(f"  voice check: jev read {_para_count(draft)} paragraph(s)")
+    elif not getattr(args, "quiet", False):
+        say("  voice check: jev unavailable; mechanical rules only")
+
+    if errors or jev_strong:
+        say(f"  voice check: {len(errors)} rule breach(es)"
+            + (f" and {len(jev_strong)} paragraph(s) jev flagged"
+               if jev_strong else "") + "; revising...")
+        problems = "\n".join(
+            f"- {rid}: {fix}" + (f"\n  text: {ex}" if ex else "")
+            for _, rid, fix, ex in errors + jev_strong)
+        try:
+            fixed = _strip_fences(ask(cl, REVISE.format(
+                problems=problems, draft=draft, voice=voice), 2000, "letter"))
+            after, _ = voicecheck.check_all(fixed, root.get("jev"))
+            still = [f for f in after if f[0] == "ERROR"]
+            still_jev = [f for f in after if f[0] == "WARN"
+                         and _jev_p(f[1]) is not None and _jev_p(f[1]) >= thr]
+            if len(still) + len(still_jev) < len(errors) + len(jev_strong):
+                draft, errors, warns = fixed, still, [
+                    f for f in after if f[0] == "WARN"]
+                say(f"  voice check: {len(still) + len(still_jev) or 'no'} "
+                    f"breach(es) left")
+            else:
+                say("  voice check: the revision did not improve it; "
+                    "keeping the original")
+        except Exception as e:
+            say(f"  ! voice revision skipped: {type(e).__name__}: {e}")
+
+    for sev, rid, fix, ex in errors:
+        say(f"    [{sev}] {rid}: {fix}")
+        if ex:
+            say(f"           {ex}")
+    for sev, rid, fix, ex in warns:
+        say(f"    [{sev}] {rid}: {fix}")
+        if ex:
+            say(f"           {ex}")
+    return draft
+
+
+def _jev_p(rule_id):
+    """The probability out of a jev finding's id, e.g. 'vague_claim (p2, 0.88)'."""
+    m = re.search(r",\s*([01]?\.\d+)\)$", str(rule_id))
+    return float(m.group(1)) if m else None
+
+
+def _para_count(text):
+    try:
+        import voicecheck
+        return len([p for p in re.split(r"\n\s*\n", voicecheck.body(text))
+                    if len(" ".join(p.split())) >= 40])
+    except Exception:
+        return 0
+
+
 def _candidate_name(facts_path="resume.yaml"):
     try:
         d = yaml.safe_load(open(facts_path, encoding="utf-8")) or {}
@@ -1260,6 +1524,207 @@ def _strip_fences(s):
         s = re.sub(r"^```[a-zA-Z]*\n", "", s)
         s = re.sub(r"\n```$", "", s)
     return s
+
+
+def cmd_screen(args):
+    """
+    Run the drafting gates and record the verdict. Draft nothing.
+
+        python tailor.py screen --limit 200 --track career
+
+    Everything here is free: the deterministic rules are string and date
+    checks, and the pre-scan is the local jev model. No hosted call is made
+    and no letter is written. What comes out is a verdict stored on each
+    posting, so the ones worth writing to are a filter in the UI instead of
+    something you rediscover by reading the whole list.
+
+      recommended  passed every gate
+      review       a gate was unsure, or the posting is too thin to judge
+      no           a gate ruled it out, with the reason kept
+
+    Re-running overwrites the previous verdict, so it is safe to run after
+    changing a band or a threshold.
+    """
+    import store
+    conn = store.connect()
+
+    effective_min = args.min_score
+    if effective_min is None:
+        effective_min = _default_batch_min_score(args.config)
+    rows = store.recent(conn, limit=100000, min_score=effective_min,
+                        order="first_seen" if args.newest else "score",
+                        track=None if args.track == "all" else args.track)
+
+    todo = []
+    for r in rows:
+        if not (r.get("description") or "").strip():
+            continue
+        if not args.rescreen and r.get("draft_rec"):
+            continue
+        todo.append(r)
+    todo = todo[:args.limit]
+    if not todo:
+        die(f"nothing to screen at score >= {effective_min}. "
+            f"Pass --rescreen to redo postings already screened.")
+
+    try:
+        root = yaml.safe_load(open(args.config, encoding="utf-8")) or {}
+    except (FileNotFoundError, yaml.YAMLError):
+        root = {}
+    facts, _voice = load_facts(args.facts)
+    prof = None
+    if getattr(args, "model", None):
+        prof = llm._lookup(root, args.model, "jev")
+
+    # Without jev this is close to useless. The deterministic rules catch
+    # dates, civil-service wording and a thin posting; everything else -
+    # a required licence, a senior title, eight years of experience - is
+    # jev's judgment. Screening with it down would mark an RN post
+    # "recommended", which is worse than not screening at all.
+    if not getattr(args, "no_prescan", False):
+        probe = None
+        try:
+            import jev as _probe_jev
+            probe = _probe_jev.prescan(todo[0].get("description") or "",
+                                       root.get("jev"), prof,
+                                       track=todo[0].get("track") or "career")
+        except ImportError:
+            pass
+        except Exception:
+            pass
+        if probe is None or probe[0] is None:
+            die("jev is not answering, and without it screening would pass "
+                "almost everything:\nrequired licences, senior titles and "
+                "experience floors are its judgment, not\nthe free rules'. "
+                "Start the local model and run this again, or pass\n"
+                "--no-prescan to record the deterministic verdicts only.")
+
+    print(f"Screening {len(todo)} posting(s) at score >= {effective_min}. "
+          f"No drafting, no paid calls.\n")
+    if getattr(args, "no_prescan", False):
+        print("  (--no-prescan: deterministic rules only. A posting marked "
+              "'recommended'\n  here has only cleared the date, wording and "
+              "completeness checks.)\n")
+    tally = {"recommended": 0, "review": 0, "no": 0}
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    results = []
+
+    for r in todo:
+        posting = r.get("description") or ""
+        quality = effective_desc_quality(posting, r.get("desc_quality") or "?")
+        rec, why = _screen_one(posting, facts, quality, r, root, prof, args)
+        tally[rec] += 1
+        results.append((r, rec, why))
+        mark = {"recommended": "DRAFT", "review": "look", "no": "  no"}[rec]
+        print(f"  {mark}  {(r.get('score') or 0):>3}  "
+              f"{r['title'][:44]:<46}{r['company'][:20]:<22}{why[:40]}")
+
+    if not args.dry_run:
+        conn.executemany(
+            "UPDATE jobs SET draft_rec=?, draft_reason=?, draft_screened_at=? "
+            "WHERE uid=?",
+            [(rec, why, now, r["uid"]) for r, rec, why in results])
+        conn.commit()
+
+    print(f"\n{tally['recommended']} to draft, {tally['review']} to look at, "
+          f"{tally['no']} ruled out.")
+    if args.dry_run:
+        print("--dry-run: nothing written.")
+    else:
+        print("Filter the Postings list to \"Recommended to draft\" to work "
+              "through them.")
+    return 0
+
+
+def _screen_one(posting, facts, quality, row, root, prof, args):
+    """(verdict, reason) from the same gates the drafting path uses."""
+    stop = deterministic_gate(posting, facts, quality,
+                              posted=row.get("posted") or "")
+    if stop[0] == "do_not_apply":
+        return "no", stop[1]
+    if stop[0]:
+        return "review", stop[1]
+
+    if not getattr(args, "no_prescan", False):
+        try:
+            import jev as _jev
+            pscore, preview, preason = _jev.prescan(
+                posting, root.get("jev"), prof,
+                track=row.get("track") or "career")
+        except ImportError:
+            pscore = None
+            preason = ""
+            preview = False
+        except Exception as e:
+            pscore, preview = None, False
+            preason = f"pre-scan skipped: {type(e).__name__}"
+        if pscore is not None:
+            floor = getattr(args, "prescan_min", 45)
+            hard = floor - getattr(args, "prescan_margin", 15)
+            if pscore < hard:
+                return "no", f"local pre-scan {pscore}: {preason}"
+            if pscore < floor:
+                return "review", f"local pre-scan {pscore}, near the line"
+            if preview:
+                return "review", f"pre-scan flagged review: {preason}"
+            return "recommended", f"passed, pre-scan {pscore}"
+    return "recommended", "passed the deterministic gates"
+
+
+def cmd_rewrite(args):
+    """
+    Rewrite a draft from the candidate's own notes.
+
+    The voice check fixes rule breaches, which is a different thing from
+    "this paragraph is boring" or "lead with the dedup story". That
+    judgment is the person's, and until now the only way to act on it was
+    to edit the file by hand or throw the draft away and pay for a fresh
+    one that would not know what was wrong with the last.
+
+    The previous version is kept beside the new one, because a rewrite
+    that goes backwards should be recoverable.
+    """
+    path = Path(args.rewrite)
+    if not path.exists():
+        die(f"{path} not found")
+    if path.suffix != ".md":
+        die("give the .md draft, not the .docx. The .docx is rebuilt from it.")
+    notes = (args.notes or "").strip()
+    if not notes:
+        die("say what you want changed, with --notes \"...\"")
+
+    draft = path.read_text(encoding="utf-8")
+    facts, voice = load_facts(args.facts)
+    cl = client(args)
+
+    print(f"Rewriting {path.name}...")
+    out = _strip_fences(ask(cl, REWRITE.format(
+        notes=notes, draft=draft, facts=facts, voice=voice), 2500, "letter"))
+    if not out.strip():
+        die("the model returned nothing; the draft is unchanged")
+
+    if not path.name.endswith("__advice.md"):
+        out = _voice_pass(out, voice, cl, args)
+
+    backup = path.with_suffix(".md.prev")
+    backup.write_text(draft, encoding="utf-8")
+    path.write_text(out.strip() + "\n", encoding="utf-8")
+    print(f"  wrote {path}")
+    print(f"  previous version kept at {backup.name}")
+
+    if not getattr(args, "no_docx", False):
+        try:
+            import docs
+            made, pdf = docs.render(path, pdf=getattr(args, "pdf", False),
+                                    facts_path=args.facts, quiet=True)
+            print(f"  wrote {made}")
+            if pdf:
+                print(f"  wrote {pdf}")
+        except ImportError:
+            pass
+        except Exception as e:
+            print(f"  ! could not re-render: {type(e).__name__}: {e}")
+    return 0
 
 
 def cmd_batch(args):
@@ -1382,6 +1847,16 @@ def main():
                     help="write Markdown only, skip the .docx")
     ap.add_argument("--no-fetch", action="store_true",
                     help="do not fetch the full text of a thin posting first")
+    ap.add_argument("--rescreen", action="store_true",
+                    help="with `screen`: redo postings already screened")
+    ap.add_argument("--rewrite", metavar="PATH",
+                    help="rewrite an existing draft. Give the .md file; "
+                         "say what to change with --notes")
+    ap.add_argument("--notes", metavar="TEXT",
+                    help="with --rewrite: what you want changed")
+    ap.add_argument("--no-voice-check", action="store_true",
+                    help="skip the mechanical voice check and its one "
+                         "revision call")
     ap.add_argument("--review", action="store_true",
                     help="ask a hosted model for a second opinion on this "
                          "posting and stop. Drafts nothing")
@@ -1455,8 +1930,14 @@ def main():
                     help="with `batch`: list what would be processed, bill nothing")
     args = ap.parse_args()
 
+    if args.rewrite:
+        return cmd_rewrite(args)
     if args.job == "list":
         return cmd_list(args)
+    if args.job == "screen":
+        if "--limit" not in sys.argv:
+            args.limit = 500      # free, so a generous default is fine
+        return cmd_screen(args)
     if args.job == "batch":
         if "--limit" not in sys.argv:
             args.limit = 25          # a sane default spend; override with --limit

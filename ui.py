@@ -303,7 +303,7 @@ def db():
 LIST_COLS = ("uid", "title", "company", "location", "salary", "url", "posted",
              "first_seen", "score", "tier", "reason", "source", "track",
              "scorer", "scorer_model", "status", "desc_quality",
-             "bookmarked")
+             "bookmarked", "draft_rec", "draft_reason", "score_detail")
 
 
 def display_tier(row, scfg):
@@ -349,6 +349,9 @@ def query_jobs(q):
         args += [like] * (5 if q.get("deep") else 4)
     if q.get("bookmarked"):
         where.append("bookmarked = 1")
+    if q.get("draft_rec"):
+        where.append("draft_rec = ?")
+        args.append(q["draft_rec"])
     if q.get("scorer"):
         fam = q["scorer"]
         if fam == "rubric":
@@ -877,6 +880,50 @@ def build_command(kind, o):
         if o.get("model"):
             a += ["--model", _profile_name(o["model"])]
         return (f"Review {o.get('title') or o['uid']}", "tailor.py", a)
+    if kind == "screen":
+        # Free: deterministic rules plus the local jev pre-scan, no paid
+        # call and nothing drafted.
+        a = ["screen", "--limit",
+             str(_int(o.get("limit", 500), 1, 100000, "limit")),
+             "--track", _track(o.get("track") or "career", allow_all=True)]
+        if o.get("min_score") not in (None, ""):
+            a += ["--min-score", str(_int(o["min_score"], 0, 100,
+                                          "minimum score"))]
+        if o.get("rescreen"):
+            a.append("--rescreen")
+        if o.get("dry_run"):
+            a.append("--dry-run")
+        if o.get("no_prescan"):
+            a.append("--no-prescan")
+        if o.get("model"):
+            a += ["--model", _profile_name(o["model"])]
+        return ("Screen for drafting"
+                + (" (dry run)" if o.get("dry_run") else ""), "tailor.py", a)
+    if kind == "rewrite":
+        rel = str(o.get("path") or "")
+        notes = str(o.get("notes") or "").strip()
+        if not rel:
+            raise ValueError("no draft chosen")
+        if len(notes) < 8:
+            raise ValueError("say what you want changed")
+        f = safe_out_path(rel)
+        if f.suffix != ".md":
+            raise ValueError("only a .md draft can be rewritten")
+        a = ["--rewrite", str(f), "--notes", notes]
+        if o.get("pdf"):
+            a.append("--pdf")
+        if o.get("model"):
+            a += ["--model", _profile_name(o["model"])]
+        return (f"Rewrite {f.name}", "tailor.py", a)
+    if kind == "voicecheck":
+        rel = str(o.get("path") or "")
+        if not rel:
+            raise ValueError("no draft chosen")
+        f = safe_out_path(rel)
+        if f.suffix != ".md":
+            raise ValueError("only a .md draft can be checked")
+        return (f"Check {f.name} against the voice rules",
+                "voicecheck.py", [str(f)])
     if kind == "render":
         # Re-render a draft you edited in the browser. The .md stays the
         # source of truth; the .docx is rebuilt from it every time.

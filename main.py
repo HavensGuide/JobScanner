@@ -26,6 +26,7 @@ Sources are slug-free: Adzuna, USAJOBS, NYC Open Data. No per-company tokens
 to maintain, nothing that 404s silently when an employer changes ATS.
 """
 
+import re
 import sys
 import yaml
 
@@ -34,12 +35,28 @@ env.load()          # read .env before anything looks for a credential
 
 import ats
 import digest
+import fit
 import score as scoring
 import sources
 import store
 
 # Sources whose postings are inherently in-region.
 LOCAL_SOURCES = {"nyc"}
+
+
+def _loc_hit(term, loc):
+    """
+    One allowlist/blocklist term against a lowercased location.
+
+    "re:..." is a regular expression, for terms that are only safe with
+    word boundaries: "uk" as a bare substring matches Milwaukee. "^..."
+    anchors to the start. Anything else is a substring, as before.
+    """
+    if term.startswith("re:"):
+        return bool(re.search(term[3:], loc))
+    if term.startswith("^"):
+        return loc.startswith(term[1:])
+    return term in loc
 
 
 def location_ok(job, locations, blocked=(), explicit=False):
@@ -57,7 +74,7 @@ def location_ok(job, locations, blocked=(), explicit=False):
     loc = (job.get("location") or "").lower()
     # Blocklist wins. "remote" as a bare token otherwise admits
     # "Remote - Lithuania" and "Global (Remote)".
-    if not explicit and loc and any(b in loc for b in blocked):
+    if not explicit and loc and any(_loc_hit(b, loc) for b in blocked):
         return False
     if not locations:
         return True
@@ -69,8 +86,7 @@ def location_ok(job, locations, blocked=(), explicit=False):
     # Needed because "new york" as a bare substring matches "Webster, New
     # York", six hours upstate, while "^new york" only matches a location
     # that opens with the city.
-    return any(loc.startswith(p[1:]) if p.startswith("^") else p in loc
-               for p in locations)
+    return any(_loc_hit(p, loc) for p in locations)
 
 
 def _arg(name, default=None):
@@ -121,6 +137,7 @@ def main():
     (career_terms, bridge_terms, bridge_exclude,
      bridge_tolerated) = scoring.track_terms(cfg)
     professional = scoring.professional_titles(cfg)
+    never = scoring.bridge_never(cfg)
 
     def track_of(job):
         """Classify, or None to drop. Career behaviour is unchanged."""
@@ -128,7 +145,7 @@ def main():
             return "career"
         return scoring.classify_track(job, career_terms, bridge_terms,
                                       bridge_exclude, bridge_tolerated,
-                                      professional)
+                                      professional, never)
 
     def locations_for(track):
         return bridge_locations if track == "bridge" else locations
@@ -235,6 +252,18 @@ def main():
     kept = [j for j in raw if not scoring.hard_exclude(j, excludes)]
     print(f"\n{len(raw)} fetched -> {len(kept)} past hard exclude "
           f"({len(raw) - len(kept)} dropped)")
+
+    # Employers that are not employers: survey-panel and work-at-home
+    # lead farms that post one title to every city. The fee question
+    # cannot catch them because the posting never mentions the fee.
+    company_block = [c.lower() for c in cfg.get("company_blocklist", [])]
+    if company_block:
+        before = len(kept)
+        kept = [j for j in kept
+                if not any(c in (j.get("company") or "").lower()
+                           for c in company_block)]
+        if before - len(kept):
+            print(f"{before - len(kept)} dropped by company_blocklist")
 
     # Track assignment. Title-only, so it is free and runs before anything is
     # scored. None means a bridge-shaped title carrying a ruled-out term (a
@@ -355,8 +384,14 @@ def main():
             print(f"  ! enrich failed: {type(e).__name__}: {e}")
 
     # --- score -------------------------------------------------------------
-    print(f"\nScoring {len(fresh)}...")
-    scoring.score_jobs(fresh, scfg, cfg.get("facts_file", "resume.yaml"), signals)
+    # One employer, one title, several cities: score it once.
+    reps, dup_pairs = fit.collapse_duplicates(fresh)
+    if dup_pairs:
+        print(f"{len(dup_pairs)} same-employer same-title duplicate(s) "
+              f"collapsed")
+    print(f"\nScoring {len(reps)}...")
+    scoring.score_jobs(reps, scfg, cfg.get("facts_file", "resume.yaml"), signals)
+    fit.copy_to_duplicates(dup_pairs)
 
     for track in ("career", "bridge"):
         of_track = [j for j in fresh if (j.get("track") or "career") == track]

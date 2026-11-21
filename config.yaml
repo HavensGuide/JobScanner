@@ -100,6 +100,7 @@ hard_exclude:
   - "crawling engineer"
   - biostatistician
   - postdoctoral
+  - sourcer            # "Executive Talent Sourcer & Researcher" is recruiting
   - "k-9"
 
 # Words that hint at relevance. NOT a filter — these only feed the keyword
@@ -399,6 +400,23 @@ bridge:
     - "field interviewer"
     - "leasing consultant"
 
+  # Never bridge work, even though the title contains a bridge word. Only
+  # applied to titles that matched title_must_match, so it cannot remove
+  # anything from the career track. Titles with a professional word
+  # (engineer, consultant, counsel...) are not listed here: those are sent
+  # to the career scorer instead of being dropped.
+  never:
+    - manager
+    - supervisor
+    - "account executive"
+    - sales
+    - strategy
+    - strategic
+    - "business development"
+    - instructor
+    - "information system"      # ISSO matched "security officer"
+    - "data warehouse"
+
   # A bridge title must contain one of these. Generous on purpose: the rubric
   # reads the posting afterward and will say so when a title that sounds
   # back-of-house turns out to be a counter job.
@@ -428,8 +446,15 @@ bridge:
     - "equipment operator"
     - "forklift"
     - assembler
-    - packaging
-    - manufacturing
+    # Bare "packaging" and "manufacturing" pulled in Packaging Engineer,
+    # Manufacturing Quality Engineer and Strategic Account Executive -
+    # Manufacturing from the startup boards.
+    - packager
+    - "packaging associate"
+    - "packaging operator"
+    - "manufacturing associate"
+    - "manufacturing technician"
+    - "manufacturing operator"
     - "general labor"
     - laborer
     - "warehouse associate"
@@ -468,7 +493,12 @@ bridge:
     - "back office"
     - "back-office"
     - "data operations"
-    - "operations associate"
+    # "operations associate" removed: on Greenhouse/Lever/Ashby it means
+    # Strategy & Ops, Product Ops, Legal Ops, People Ops at $100K+, which
+    # were about thirty of the rows in one digest. "Fulfillment Operations
+    # Associate" still matches on "fulfillment". Put the line back if you
+    # miss it.
+    # - "operations associate"
     - "operations assistant"
     - "processing associate"
     - "processing specialist"
@@ -655,6 +685,51 @@ location_blocklist:
   - "global (remote)"
   - worldwide
   - anywhere
+  # "re:" entries are regular expressions. "uk" has to be one: as a bare
+  # substring it matches Milwaukee.
+  - "re:\\buk\\b"
+  - england
+  - scotland
+  - europe
+  - "sri lanka"
+  - bogot              # "Bogotá, Bogotá D.C." passed on the allowlist's "d.c."
+  - latam
+  - israel
+  - "tel aviv"
+  - nigeria
+  - kenya
+  - "south africa"
+  - egypt
+  - vietnam
+  - china
+  - "hong kong"
+  - taiwan
+  - "new zealand"
+  - italy
+  - sweden
+  - switzerland
+  - belgium
+  - denmark
+  - norway
+  - finland
+  - turkey
+  - dubai
+  - "saudi"
+  - indonesia
+  - malaysia
+  - thailand
+  - chile
+  - peru
+  - "costa rica"
+  - bangalore
+  - bengaluru
+
+# Employers dropped before scoring, matched as a substring of the company
+# name. For lead farms that post "Remote Data Entry Clerk - Work at Home"
+# and "Research Panelist" to every city: the fee question cannot see
+# them, because the posting never mentions the fee.
+company_blocklist:
+  - usasurveyjob
 
 # A model cannot fix a commute, so location stays a hard gate.
 location_allowlist:
@@ -1074,6 +1149,16 @@ jev:
     - AI ethics or governance
     - applied quantitative
     - research
+  # Voice questions jev asks of each PARAGRAPH of a draft. A regex settles
+  # the mechanical rules; these are the judgments it cannot make. Override
+  # or add here and jev.py merges them over its defaults; voice_threshold
+  # is how sure it must be before the paragraph is flagged.
+  voice_threshold: 0.72
+  # How sure jev must be before a flagged paragraph is worth a paid
+  # rewrite. Between the two thresholds a finding is reported and left
+  # to you: a probability is an opinion, and an opinion should not
+  # silently spend money.
+  voice_revise_at: 0.85
   career_level:
     # The old wording asked only how MANY years a posting named, so a line
     # like "4 years of relevant experience including graduate research,
@@ -1118,6 +1203,105 @@ jev:
       has already started, or it names a year later than the current one.
   min_desc_chars: 120
   profile_chars: 1200
+  # ------------------------------------------------------------------
+  # resume mode (fit.py). The model is shown your record above each
+  # posting and the score is the PRODUCT of its answers:
+  #   career  match x P(credentials) x P(experience) x P(open now)
+  #   bridge  contact x P(can get it) x P(no fee) x P(open now)
+  # No caps or penalties: `thresholds:` below is only used by
+  # mode: bands, the previous scorer. Edit the wording here; the
+  # band ORDER in career_match is lowest to highest.
+  #   python fit.py --candidate   the text the model reads about you
+  #   python fit.py --check       every factor, plus a control posting
+  # ------------------------------------------------------------------
+  mode: resume          # resume | bands
+  # Characters of each posting jev reads (was scoring.desc_chars, 700).
+  desc_chars: 2000
+  # Write your own summary here to replace the one generated from
+  # resume.yaml:
+  # candidate: >-
+  #   CANDIDATE RECORD. B.A. in Economics ...
+  fit:
+    career_match:
+      instructions: Compare the duties this job posting describes with the work in
+        the candidate record above it. Judge the duties, not the job title or the
+        employer. Ignore degree requirements, years of experience and dates entirely;
+        those are asked separately.
+      bands:
+      - The duties are a different occupation from anything in the candidate record.
+      - 'The duties are adjacent to the record: related subject matter, but not work
+        the candidate has done.'
+      - Some of the central duties are things the candidate has done; the rest would
+        be new.
+      - Most of the central duties are things the candidate has done.
+      - The central duties are the work the candidate record describes.
+      labels:
+      - different occupation
+      - adjacent work
+      - partial match
+      - mostly matches
+      - direct match
+    needs_graduate_degree:
+      instructions: Does this posting REQUIRE a master's degree, PhD or other graduate
+        degree?
+      'true': Yes. A graduate degree is stated as required.
+      'false': No. A bachelor's degree is enough, or a graduate degree is only preferred.
+    needs_enrolment:
+      instructions: Does this posting require the applicant to be CURRENTLY enrolled
+        as a student?
+      'true': 'Yes. It is for current students: an internship, co-op or programme
+        that requires active enrolment.'
+      'false': No. Graduates can apply.
+    has_credentials:
+      instructions: Leaving degree level aside, does the candidate record show the
+        field of study, licence, certification, security clearance or language this
+        posting requires?
+      'true': Yes. The record shows what the posting requires, or the posting requires
+        none of these.
+      'false': No. It requires a degree in a different field, or a licence, certification,
+        clearance or language the record does not show.
+    has_experience:
+      instructions: Does the candidate record show the experience this posting REQUIRES,
+        counting experience the way this posting says to count it?
+      'true': Yes. The role is entry-level or states no minimum, or the amount and
+        kind of experience it asks for is covered by the record, including assistantships
+        and internships where the posting counts them.
+      'false': No. It asks for more years than the record shows, a senior, lead or
+        people-management level, or hands-on experience in a field or tool the record
+        does not contain.
+    career_features:
+    - career_match
+    - needs_graduate_degree
+    - needs_enrolment
+    - has_credentials
+    - has_experience
+    - open_now
+    barrier_features:
+    - needs_graduate_degree
+    - needs_enrolment
+    can_get:
+      instructions: Could the candidate in the record above be hired for this job
+        as the record stands?
+      'true': 'Yes. The posting asks for nothing the record lacks: no licence, certification,
+        clearance or language, and no years of experience in this specific line of
+        work. A degree the job does not need is not a barrier.'
+      'false': 'No. The posting requires at least one thing the record does not show:
+        a licence, certification, clearance, language, or prior experience in this
+        specific line of work.'
+    candidate_chars: 2600
+    requirement_chars: 600
+    weights_file: fit_weights.yaml
+    tracker: 'https://docs.google.com/spreadsheets/d/1lvbdZbaF21yZkuJxlepqxgsLOvDz9apAnC61mwpcCFQ/edit?gid=861095313'
+    tracker_tab: Job Search
+    service_account_file: 'C:/Users/Kai/job search/savvy-girder-515321-c6-805a23be0c6f.json'
+    refit: on_run
+    negatives_per_positive: 4
+    regularization:
+    - 0.1
+    - 1.0
+    - 10.0
+    review_band: 0.15
+    review_min_score: 45
   thresholds:
     gate_hard: 0.65
     gate_hard_cap: 40

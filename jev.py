@@ -49,6 +49,8 @@ from datetime import date
 import re
 import time
 
+import fit
+
 DEFAULTS = {
     # ---- runtime -------------------------------------------------------
     "endpoint": "http://127.0.0.1:8090",
@@ -374,6 +376,7 @@ def validate(cfg, max_bands=None):
         for key in ("instructions", "true", "false"):
             if not (q.get(key) or "").strip():
                 problems.append(f"jev.{name}.{key} is empty")
+    problems += fit.validate(cfg)
     t = cfg.get("thresholds") or {}
     if t.get("gate_soft", 0) >= t.get("gate_hard", 1):
         problems.append("jev.thresholds.gate_soft must be below gate_hard")
@@ -493,7 +496,7 @@ def hourly_rate(pay_str, hours_per_year=2080):
 # Composition
 # ==========================================================================
 def compose(score_res, a_res, b_res, text, cfg=None, track="bridge",
-            t_res=None):
+            t_res=None, explain=None):
     """
     (score 0-100, review bool, reason string) from three probability results.
 
@@ -519,6 +522,8 @@ def compose(score_res, a_res, b_res, text, cfg=None, track="bridge",
     a_p = float(a_res.get("noul", 0.0))
     b_p = float(b_res.get("noul", 0.0))
     notes = []
+    steps = []
+    raw_ev = score
 
     if track == "career":
         # Seniority is the most common reason a good research job is
@@ -526,12 +531,18 @@ def compose(score_res, a_res, b_res, text, cfg=None, track="bridge",
         if a_p < t["career_level_below"]:
             score = min(score, float(t["career_level_cap"]))
             notes.append("senior or 2+ years required")
+            steps.append(f"capped at {t['career_level_cap']}: open-to-a-"
+                         f"recent-grad only {a_p:.2f}")
         elif a_p < t["career_level_soft"]:
             score -= float(t["career_level_penalty"])
             notes.append("may be above entry level")
+            steps.append(f"-{t['career_level_penalty']}: open-to-a-recent-"
+                         f"grad only {a_p:.2f}")
         if b_p > t["career_gate_above"]:
             score = min(score, float(t["career_gate_cap"]))
             notes.append("PhD, licence or clearance required")
+            steps.append(f"capped at {t['career_gate_cap']}: credential gate "
+                         f"{b_p:.2f}")
         review_floor = t["career_review_top_band"]
         review = (max((float(v) for v in probs.values()), default=1.0) < review_floor
                   or 0.30 < a_p < 0.55
@@ -540,17 +551,25 @@ def compose(score_res, a_res, b_res, text, cfg=None, track="bridge",
         if a_p > t["gate_hard"]:
             score = min(score, float(t["gate_hard_cap"]))
             notes.append("experience or licence gate")
+            steps.append(f"capped at {t['gate_hard_cap']}: experience or "
+                         f"licence gate {a_p:.2f}")
         elif a_p > t["gate_soft"]:
             score -= float(t["gate_soft_penalty"])
             notes.append("possible experience gate")
+            steps.append(f"-{t['gate_soft_penalty']}: possible experience "
+                         f"gate {a_p:.2f}")
         if b_p > t["fee"]:
             score = min(score, float(t["fee_cap"]))
             notes.append("asks applicant for money")
+            steps.append(f"capped at {t['fee_cap']}: asks for money "
+                         f"{b_p:.2f}")
         rate = hourly_rate(extract_pay(text), t["hours_per_year"])
         if (rate and rate > t["implausible_hourly"]
                 and a_p < t["implausible_gate_below"]):
             score = min(score, float(t["implausible_cap"]))
             notes.append(f"${rate:.0f}/hr with no experience required")
+            steps.append(f"capped at {t['implausible_cap']}: ${rate:.0f}/hr "
+                         f"with no experience asked")
         review = (max((float(v) for v in probs.values()), default=1.0)
                   < t["review_top_band"]
                   or t["review_gate_lo"] < a_p < t["review_gate_hi"]
@@ -564,9 +583,11 @@ def compose(score_res, a_res, b_res, text, cfg=None, track="bridge",
         if open_p < t["temporal_open_below"]:
             score = 0.0
             notes.append("closed or future-dated")
+            steps.append(f"zeroed: still-open only {open_p:.2f}")
         elif open_p < t["temporal_soft"]:
             score -= float(t["temporal_penalty"])
             notes.append("check the dates")
+            steps.append(f"-{t['temporal_penalty']}: still-open {open_p:.2f}")
         review = review or (t["temporal_open_below"] <= open_p
                             < t["temporal_soft"])
 
@@ -582,7 +603,61 @@ def compose(score_res, a_res, b_res, text, cfg=None, track="bridge",
     elif pay:
         bits.append(pay)
     bits += notes
+
+    if explain is not None:
+        ranked = sorted(((int(k), float(v)) for k, v in probs.items()),
+                        key=lambda kv: -kv[1])
+        explain.update({
+            "track": track,
+            "band": labels[min(band, len(labels) - 1)],
+            "bands": [(labels[min(i, len(labels) - 1)], round(p, 3))
+                      for i, p in ranked],
+            "expected_value": round(raw_ev, 1),
+            "final": round(score),
+            "questions": (
+                {"open to a recent grad": round(a_p, 3),
+                 "credential required": round(b_p, 3)}
+                if track == "career" else
+                {"experience or licence gate": round(a_p, 3),
+                 "asks for money": round(b_p, 3)}),
+            "adjustments": steps,
+            "review": bool(review),
+            "pay": pay or None,
+        })
+        if t_res is not None:
+            explain["questions"]["still open"] = round(
+                float(t_res.get("noul", 1.0)), 3)
+        explain["text"] = explain_text(explain)
     return round(score), review, " · ".join(bits)
+
+
+def explain_text(d):
+    """
+    The working, as a few lines a person can read.
+
+    Ordered the way the score is actually built: which band the posting
+    landed in and how confidently, the expected value that came out of the
+    whole distribution, then every cap or penalty applied to it, then the
+    answer to each yes/no question. A score with no adjustments says so,
+    which is itself the explanation.
+    """
+    lines = []
+    top = d.get("bands") or []
+    if top:
+        first = ", ".join(f"{name} {p:.2f}" for name, p in top[:3])
+        lines.append(f"Band: {first}")
+    lines.append(f"Expected value across the bands: {d.get('expected_value')}")
+    for s in d.get("adjustments") or []:
+        lines.append(f"  {s}")
+    if not d.get("adjustments"):
+        lines.append("  no caps or penalties applied")
+    q = d.get("questions") or {}
+    if q:
+        lines.append("Questions: "
+                     + ", ".join(f"{k} {v:.2f}" for k, v in q.items()))
+    lines.append(f"Final: {d.get('final')}"
+                 + (" (flagged for review)" if d.get("review") else ""))
+    return "\n".join(lines)
 
 
 # ==========================================================================
@@ -682,6 +757,14 @@ def prescan(text, cfg=None, profile=None, track="career", today=None):
         model = llm.decider(prof)
     except (ImportError, llm.LLMError) as e:
         return None, False, f"{type(e).__name__}: {e}"
+    if cfg.get("mode", "resume") == "resume" and fit.candidate(cfg):
+        # Same scale as the digest, on the full posting.
+        try:
+            r = fit.score_one(model, {"description": text}, text, cfg,
+                              track, fit.candidate(cfg), today)
+        except Exception as e:
+            return None, False, f"{type(e).__name__}: {e}"
+        return r["score"], r["review"], r["reason"]
     score_q, a_q, b_q, t_q = questions(cfg, track, today)
     try:
         c = model.decide(text, score_q)
@@ -744,6 +827,16 @@ def score_track(jobs, cfg=None, focus=None, track="bridge",
           + (f", {workers} parallel" if workers > 1 else ""))
 
     score_q, a_q, b_q, t_q = questions(cfg, track)
+    # resume mode: the candidate record goes above every posting and the
+    # score is the product of the model's answers (fit.py).
+    resume_mode = cfg.get("mode", "resume") == "resume"
+    cand = fit.candidate(cfg, facts_path) if resume_mode else ""
+    if resume_mode and not cand:
+        print(f"  ! jev: {facts_path} unreadable; using the band scorer")
+        resume_mode = False
+    if resume_mode and track == "career":
+        # New applications in your tracker? Refit before scoring.
+        fit.maybe_refit(cfg, cand, model)
 
     # No candidate summary in the state, on either track. Putting one there
     # made every career posting score 0.97-0.99 on the top band: the model
@@ -764,14 +857,19 @@ def score_track(jobs, cfg=None, focus=None, track="bridge",
             return {"score": floor, "review": True,
                     "reason": f"manual review: no description retrieved "
                               f"({len(body.strip())} chars)"}, True
+        if resume_mode:
+            return fit.score_one(model, j, body, cfg, track, cand), False
         text = (f"{j.get('title','')} at {j.get('company','')}, "
                 f"{j.get('location','')}. {body}")
         c = model.decide(text, score_q)
         f_ = model.decide(text, a_q)
         g_ = model.decide(text, b_q)
         tm = model.decide(text, t_q)
-        score, review, reason = compose(c, f_, g_, text, cfg, track, tm)
-        return {"score": score, "review": review, "reason": reason}, False
+        why = {}
+        score, review, reason = compose(c, f_, g_, text, cfg, track, tm,
+                                        explain=why)
+        return {"score": score, "review": review, "reason": reason,
+                "detail": why.get("text", ""), "explain": why}, False
 
     results = {}
     skipped = 0
@@ -831,3 +929,191 @@ if __name__ == "__main__":
                              "warehouse experience necessary."}
     n, err = score_bridge([sample])
     print(err or json.dumps(sample["_jev"], indent=2))
+
+
+# ==========================================================================
+# Voice: the rules a regex cannot see
+# ==========================================================================
+# voicecheck.py catches the mechanical breaches perfectly and for free: an
+# em dash is a character, "I am excited to apply" is a string. What it
+# cannot see is whether a paragraph is a resume bullet turned into prose,
+# or whether a sentence claims experience the fact base does not support.
+# Those are judgments, which is what jev is for - and it is local, free,
+# and emits no tokens, so asking it five questions about six paragraphs
+# costs nothing but a moment of GPU.
+#
+# Running PER PARAGRAPH is the point. A probability for a whole letter
+# tells you something is wrong somewhere; a probability per paragraph tells
+# you which one to rewrite, and the revision prompt can then quote it.
+
+VOICE_QUESTIONS = {
+    "opens_with_filler": {
+        "instructions":
+            "Does this paragraph lead with enthusiasm, admiration or "
+            "interest, instead of leading with something the writer did?",
+        "true": "Yes. It opens by saying how keen the writer is, or how "
+                "good the employer or the role is.",
+        "false": "No. It opens with a task, a method, a decision, a "
+                 "finding or a piece of the writer's own experience.",
+    },
+    "argues_against_self": {
+        "instructions":
+            "Does this paragraph suggest the writer may not be qualified, "
+            "or apologise for a gap?",
+        "true": "Yes. It concedes a shortfall, hedges about fit, or "
+                "explains away something the writer lacks.",
+        "false": "No. It states what the writer has done and leaves it "
+                 "there.",
+    },
+    "resume_in_prose": {
+        "instructions":
+            "Is this paragraph a list of accomplishments rewritten as "
+            "sentences, with no decision, surprise, tradeoff, mistake or "
+            "reason the work mattered?",
+        "true": "Yes. It recites what was done and the methods used, and "
+                "nothing more.",
+        "false": "No. It turns on a judgment, a problem found, a choice "
+                 "made, or why the work mattered.",
+    },
+    "praises_employer": {
+        "instructions":
+            "Does this paragraph compliment the employer, their reputation, "
+            "their mission or their work?",
+        "true": "Yes, it contains praise directed at the organisation.",
+        "false": "No, it does not comment on how good the organisation is.",
+    },
+    # The gap the iSpot letter found. It opened "iSpot measures how
+    # television and streaming advertising actually performs", and nothing
+    # caught it: that is not enthusiasm, so opens_with_filler stayed
+    # silent, and it is not a compliment, so praises_employer did too. It
+    # is simply a paragraph about them rather than about the writer, which
+    # breaks two rules at once - open on your own work, and never write at
+    # the posting.
+    "about_them_not_you": {
+        "instructions":
+            "Does this paragraph begin by describing the employer, their "
+            "product, their customers or their industry, instead of "
+            "beginning with something the writer did or decided?",
+        "true": "Yes. The opening sentence is about the company or its "
+                "field, not about the writer's own work.",
+        "false": "No. It opens on the writer's own task, method, decision "
+                 "or finding.",
+    },
+    "vague_claim": {
+        "instructions":
+            "Does this paragraph make a claim about the writer's ability "
+            "with no specific work, number or method behind it?",
+        "true": "Yes. It asserts a strength, a passion or a fit in the "
+                "abstract.",
+        "false": "No. Every claim it makes points at particular work.",
+    },
+}
+
+VOICE_DEFAULT_THRESHOLD = 0.72
+
+
+def _paragraphs(text):
+    """Body paragraphs with their position, skipping letter furniture."""
+    import voicecheck
+    body = voicecheck.body(text or "")
+    out = []
+    for i, p in enumerate(re.split(r"\n\s*\n", body)):
+        s = " ".join(p.split())
+        if len(s) >= 40:                 # a salutation or a stray line
+            out.append((i, s))
+    return out
+
+
+def voice_scan(text, cfg=None, profile=None, threshold=None, track="career"):
+    """
+    [(rule, paragraph_index, probability, excerpt)] for one draft.
+
+    Returns None when no local model is available, so the caller can say so
+    rather than quietly reporting a clean letter it never checked.
+    """
+    import llm
+    cfg = merged(cfg)
+    thr = (threshold if threshold is not None
+           else float(cfg.get("voice_threshold", VOICE_DEFAULT_THRESHOLD)))
+    questions = {**VOICE_QUESTIONS, **(cfg.get("voice") or {})}
+    try:
+        prof = profile_for(cfg, profile, track)
+    except llm.LLMError:
+        return None
+    if llm.check(prof) or not llm.ensure_ready(prof, quiet=True)[0]:
+        return None
+    try:
+        model = llm.decider(prof)
+    except (ImportError, llm.LLMError):
+        return None
+
+    # Per-question thresholds, when voicecal.py has fitted them. One
+    # cutoff for six different questions assumes they are equally
+    # separable, which they are not: "does this praise the employer" is a
+    # much sharper judgment than "is this the resume in prose", and the
+    # probability at which each becomes a real finding differs.
+    per_q = cfg.get("voice_thresholds") or {}
+
+    found = []
+    for idx, para in _paragraphs(text):
+        for rid, q in questions.items():
+            question = {"type": "noul", "instructions": q["instructions"],
+                        "criteria": {"true": q["true"], "false": q["false"]}}
+            try:
+                r = model.decide(para[:3000], question)
+            except Exception:
+                return None
+            p = float(r.get("noul", 0.0))
+            if p >= float(per_q.get(rid, thr)):
+                found.append((rid, idx, p, para[:150]))
+    found.sort(key=lambda f: -f[2])
+    return found
+
+
+def voice_probabilities(text, cfg=None, profile=None, track="career"):
+    """
+    Every question's probability for every paragraph, unthresholded.
+
+    voicecal.py uses this to fit the cutoffs from labelled drafts. Returns
+    None when no model answers.
+    """
+    import llm
+    cfg = merged(cfg)
+    questions = {**VOICE_QUESTIONS, **(cfg.get("voice") or {})}
+    try:
+        prof = profile_for(cfg, profile, track)
+    except llm.LLMError:
+        return None
+    if llm.check(prof) or not llm.ensure_ready(prof, quiet=True)[0]:
+        return None
+    try:
+        model = llm.decider(prof)
+    except (ImportError, llm.LLMError):
+        return None
+
+    rows = []
+    for idx, para in _paragraphs(text):
+        scores = {}
+        for rid, q in questions.items():
+            question = {"type": "noul", "instructions": q["instructions"],
+                        "criteria": {"true": q["true"], "false": q["false"]}}
+            try:
+                scores[rid] = float(
+                    model.decide(para[:3000], question).get("noul", 0.0))
+            except Exception:
+                return None
+        rows.append((idx, para, scores))
+    return rows
+
+
+VOICE_FIX = {
+    "opens_with_filler": "open on something you did, not on how you feel "
+                         "about the role",
+    "argues_against_self": "cut the concession; state what is true and stop",
+    "resume_in_prose": "this is the resume in sentences. Give it a decision, "
+                       "a surprise, a tradeoff or a reason the work mattered",
+    "praises_employer": "remove the praise",
+    "about_them_not_you": "open on what you did. Their business is not news "
+                          "to them",
+    "vague_claim": "attach this to specific work, or cut it",
+}
